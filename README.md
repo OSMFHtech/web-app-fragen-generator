@@ -13,13 +13,13 @@ npm run dev
 > Cleanup first if needed: delete old TS template and build folders:  
 > `web-app-fragen_generator/`, `.next/`, `node_modules/`, `.git/`
 
-## What to show (teacher)
+## What to show (Customer)
 - Enter topic → **Generate** → list appears.  
 - Click **Accept/Reject** (or **Edit**); try **Regenerate** on a weak item.  
 - Click **Export accepted to Moodle XML** → downloads `Fragenpool_<topic>_<date>.xml`.  
 - Explain next step: connect LLM + **batch by 10** to avoid context drift.
 
-## User Stories (Epic 2: Review & Confirm)
+## User Stories (Epic 2: Review & Confirm) Beispiele von User Stories:
 - **US1 – Fragen im UI anzeigen**: List shows text, options, solutions (per type). ✔️
 - **US2 – Fragen akzeptieren**: Each card has **Accept**; accepted are marked/tagged; only accepted are exported. ✔️
 - **US3 – Fragen ablehnen**: Each card has **Reject**; rejected stay visible and tagged; excluded from export. ✔️
