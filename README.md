@@ -127,3 +127,20 @@ npm run dev
 for code runner editor dependencies : 
 
 npm install react-simple-code-editor prismjs
+
+
+# VERY Important cleaning space before commiting with .gitignore because it takes too much space
+# 1. Clean up local state
+git rm -r --cached .
+
+# 2. Re-add everything, respecting the new .gitignore
+git add .
+
+# 3. Commit the cleanup and the new .gitignore
+git commit -m "Add .gitignore and stop tracking large dependencies"
+
+# 4. Use BFG or filter-branch to remove the large file from ALL history (REQUIRED)
+# (See previous answer for BFG or filter-branch steps)
+
+# 5. Finally, forcefully push the rewritten history to the remote
+git push -u origin master --force
