@@ -23,8 +23,16 @@ export default function Home() {
     [questions, acceptedIds]
   );
 
-  const statusOf = (id) => acceptedIds.has(id) ? "accepted" : rejectedIds.has(id) ? "rejected" : "open";
+  const statusOf = (id) =>
+    acceptedIds.has(id)
+      ? "accepted"
+      : rejectedIds.has(id)
+      ? "rejected"
+      : "open";
 
+  /* -----------------------------
+      Generate AI questions
+  -----------------------------*/
   async function generate() {
     setLoading(true);
     setQuestions([]);
@@ -35,7 +43,7 @@ export default function Home() {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ topic, language, qtype, difficulty, count })
+        body: JSON.stringify({ topic, language, qtype, difficulty, count }),
       });
       const data = await res.json();
       if (data.ok) setQuestions(data.items);
@@ -47,10 +55,12 @@ export default function Home() {
     }
   }
 
+  /* -----------------------------
+      Accept / Reject
+  -----------------------------*/
   function onAccept(q) {
     const next = new Set(acceptedIds);
     next.add(q.id);
-    // ensure not rejected
     const rej = new Set(rejectedIds);
     rej.delete(q.id);
     setAcceptedIds(next);
@@ -60,15 +70,17 @@ export default function Home() {
   function onReject(id) {
     const next = new Set(rejectedIds);
     next.add(id);
-    // ensure not accepted
     const acc = new Set(acceptedIds);
     acc.delete(id);
     setRejectedIds(next);
     setAcceptedIds(acc);
   }
 
+  /* -----------------------------
+      Edit / Regenerate / Update / Delete
+  -----------------------------*/
   function onEdit(id) {
-    const idx = questions.findIndex(q => q.id === id);
+    const idx = questions.findIndex((q) => q.id === id);
     if (idx === -1) return;
     const q = questions[idx];
     const text = prompt("Edit question text (HTML allowed):", q.text);
@@ -83,16 +95,15 @@ export default function Home() {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ topic, language, qtype, difficulty, count: 1 })
+        body: JSON.stringify({ topic, language, qtype, difficulty, count: 1 }),
       });
       const data = await res.json();
       if (!data.ok || !data.items?.length) throw new Error("Regeneration failed");
       const replacement = data.items[0];
-      const idx = questions.findIndex(q => q.id === id);
+      const idx = questions.findIndex((q) => q.id === id);
       if (idx === -1) return;
       const copy = [...questions];
       copy[idx] = replacement;
-      // reset status for the new question
       const acc = new Set(acceptedIds);
       const rej = new Set(rejectedIds);
       acc.delete(id);
@@ -105,16 +116,44 @@ export default function Home() {
     }
   }
 
+  function onUpdate(id, updated) {
+    const copy = questions.map((q) => (q.id === id ? updated : q));
+    setQuestions(copy);
+  }
+
+  function onDelete(id) {
+    const copy = questions.filter((q) => q.id !== id);
+    setQuestions(copy);
+    const acc = new Set(acceptedIds);
+    const rej = new Set(rejectedIds);
+    acc.delete(id);
+    rej.delete(id);
+    setAcceptedIds(acc);
+    setRejectedIds(rej);
+  }
+
+  /* -----------------------------
+      CodeRunner check (simple demo)
+  -----------------------------*/
+  function checkCode(q) {
+    if (!q.userCode) return;
+    let correct = false;
+    if (q.answer && q.userCode.trim() === q.answer.trim()) correct = true;
+    onUpdate(q.id, { ...q, checkResult: correct ? "✅ Correct!" : "❌ Incorrect" });
+  }
+
+  /* -----------------------------
+      Export
+  -----------------------------*/
   function exportXml() {
     setExporting(true);
     try {
       const xml = buildMoodleXml(accepted);
-      const date = new Date().toISOString().slice(0,10);
+      const date = new Date().toISOString().slice(0, 10);
       const cleanTopic = (topic || "Fragenpool").replace(/[^\w\-]+/g, "_");
       const name = `Fragenpool_${cleanTopic}_${date}.xml`;
       download(name, xml);
     } finally {
-      // brief delay to show progress state
       setTimeout(() => setExporting(false), 400);
     }
   }
@@ -124,32 +163,37 @@ export default function Home() {
       <h1>AI Question Generator</h1>
       <p className="small">Frontend demo • Generate → Review → Export (Moodle XML)</p>
 
-      <div className="card" style={{marginTop: 12}}>
+      <div className="card" style={{ marginTop: 12 }}>
         <div className="row">
           <div>
             <label>Topic</label>
-            <input className="input" placeholder="e.g., Linear Regression" value={topic} onChange={e=>setTopic(e.target.value)} />
+            <input
+              className="input"
+              placeholder="e.g., Linear Regression"
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+            />
           </div>
           <div>
             <label>Language</label>
-            <select value={language} onChange={e=>setLanguage(e.target.value)}>
+            <select value={language} onChange={(e) => setLanguage(e.target.value)}>
               <option value="en">English</option>
               <option value="de">Deutsch</option>
             </select>
           </div>
         </div>
 
-        <div className="row3" style={{marginTop: 12}}>
+        <div className="row3" style={{ marginTop: 12 }}>
           <div>
             <label>Question Type</label>
-            <select value={qtype} onChange={e=>setQtype(e.target.value)}>
+            <select value={qtype} onChange={(e) => setQtype(e.target.value)}>
               <option value="multiple-choice">Multiple Choice</option>
               <option value="coderunner">CodeRunner (shortanswer demo)</option>
             </select>
           </div>
           <div>
             <label>Difficulty</label>
-            <select value={difficulty} onChange={e=>setDifficulty(e.target.value)}>
+            <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)}>
               <option value="easy">Easy</option>
               <option value="medium">Medium</option>
               <option value="hard">Hard</option>
@@ -157,11 +201,18 @@ export default function Home() {
           </div>
           <div>
             <label>Count</label>
-            <input className="input" type="number" min="1" max="50" value={count} onChange={e=>setCount(e.target.value)} />
+            <input
+              className="input"
+              type="number"
+              min="1"
+              max="50"
+              value={count}
+              onChange={(e) => setCount(e.target.value)}
+            />
           </div>
         </div>
 
-        <div style={{display:"flex", gap:8, marginTop: 12, alignItems:"center"}}>
+        <div style={{ display: "flex", gap: 8, marginTop: 12, alignItems: "center" }}>
           <button className="btn" onClick={generate} disabled={loading || !topic}>
             {loading ? "Generating…" : "Generate"}
           </button>
@@ -176,7 +227,7 @@ export default function Home() {
 
       <div className="section-title">Questions</div>
       <div className="list">
-        {questions.map(q => (
+        {questions.map((q) => (
           <QuestionCard
             key={q.id}
             q={q}
@@ -185,13 +236,18 @@ export default function Home() {
             onReject={onReject}
             onEdit={onEdit}
             onRegenerate={onRegenerate}
+            onUpdate={onUpdate}
+            onDelete={onDelete}
+            checkCode={checkCode}
           />
         ))}
-        {(!questions.length && !loading) ? <div className="small">No questions yet. Enter a topic and click Generate.</div> : null}
+        {!questions.length && !loading ? (
+          <div className="small">No questions yet. Enter a topic and click Generate.</div>
+        ) : null}
       </div>
 
       <div className="footer">
-        <div className="small">Tip: Accept only high-quality items. You can edit text or regenerate low-quality items before export.</div>
+        <div className="small">Tip: Accept only high-quality items. You can edit text, mark correct answers, or regenerate low-quality items before export.</div>
       </div>
     </div>
   );
