@@ -1,23 +1,63 @@
-# Dependencies
+# -------------------------------------------------------------------
+# NEXT.JS / NODE.JS IGNORE FILE
+# -------------------------------------------------------------------
+
+# 1. DEPENDENCIES AND BUILD ARTIFACTS
+# -------------------------------------------------------------------
+
+# Node dependencies
 node_modules
 
-# Next.js build output
-.next
-out
+# Next.js build output (critical!)
+.next/
+out/
 
-# Next.js cache
+# Next.js cache directory
 .next/cache
+
+# Compiled TypeScript output (if using TypeScript)
+/dist/
+/lib/
+/tmp/
+
+# Jest coverage output
+/coverage/
+
+# 2. ENVIRONMENT AND SECRETS
+# -------------------------------------------------------------------
+
+# Environment variables (CRITICAL for security)
+.env
+.env.local
+.env.development.local
+.env.production.local
+.env.test.local
+
+# 3. LOGS AND LOCK FILES
+# -------------------------------------------------------------------
 
 # Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.production.local
+# Lock files (for consistency, though package-lock.json is usually committed)
+# If you are using pnpm or yarn, include their lock files:
+# yarn.lock
+# pnpm-lock.yaml
+package-lock.json # <-- Note: Some developers commit this, others ignore it.
 
-# Local history/config
+# 4. OS AND EDITOR FILES
+# -------------------------------------------------------------------
+
+# macOS
 .DS_Store
+
+# Windows
+Thumbs.db
+
+# Visual Studio Code
+.vscode/
+.history/
