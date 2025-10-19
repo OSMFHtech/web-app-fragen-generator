@@ -91,30 +91,34 @@ export default function Home() {
   }
 
   async function onRegenerate(id) {
-    try {
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ topic, language, qtype, difficulty, count: 1 }),
-      });
-      const data = await res.json();
-      if (!data.ok || !data.items?.length) throw new Error("Regeneration failed");
-      const replacement = data.items[0];
-      const idx = questions.findIndex((q) => q.id === id);
-      if (idx === -1) return;
-      const copy = [...questions];
-      copy[idx] = replacement;
-      const acc = new Set(acceptedIds);
-      const rej = new Set(rejectedIds);
-      acc.delete(id);
-      rej.delete(id);
-      setQuestions(copy);
-      setAcceptedIds(acc);
-      setRejectedIds(rej);
-    } catch (e) {
-      alert(String(e));
-    }
+  try {
+    const res = await fetch("/api/regenerate", {   // ✅ use regenerate route
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id, topic, language, qtype, difficulty }),
+    });
+    const data = await res.json();
+    const replacement = data?.item;
+    if (!replacement) throw new Error("Regeneration failed");
+
+    const idx = questions.findIndex((q) => q.id === id);
+    if (idx === -1) return;
+    const copy = [...questions];
+    copy[idx] = replacement;
+
+    const acc = new Set(acceptedIds);
+    const rej = new Set(rejectedIds);
+    acc.delete(id);
+    rej.delete(id);
+
+    setQuestions(copy);
+    setAcceptedIds(acc);
+    setRejectedIds(rej);
+  } catch (e) {
+    alert(String(e));
   }
+}
+
 
   function onUpdate(id, updated) {
     const copy = questions.map((q) => (q.id === id ? updated : q));
