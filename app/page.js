@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import QuestionCard from "./components/QuestionCard";
 import StatusSummary from "./components/StatusSummary";
-import { buildMoodleXml, download } from "../lib/exportXml";
+import { buildMoodleXml, download } from "../lib/moodleXml";
 
 export default function Home() {
   const [topic, setTopic] = useState("");

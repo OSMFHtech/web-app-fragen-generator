@@ -1,194 +1,157 @@
 // app/api/generate/route.js
 export const runtime = "nodejs";
 
-import { v4 as uuidv4 } from "uuid";
+// hard-require LLM (no mock fallback)
+const REQUIRE_LLM = true;
 
-/* -----------------------------
-  Mock generator (fallback)
------------------------------*/
-function mockQuestions(topic, language, qtype, difficulty, n) {
-  const items = Array.from({ length: n }, (_, i) => ({
-    id: uuidv4(),
-    type: qtype,
-    text:
-      language === "de"
-        ? `Beispiel-Frage ${i + 1} über ${topic}?`
-        : `Example question ${i + 1} about ${topic}?`,
-    options: [
-      { text: "Option A", correct: i % 4 === 0 },
-      { text: "Option B", correct: i % 4 === 1 },
-      { text: "Option C", correct: i % 4 === 2 },
-      { text: "Option D", correct: i % 4 === 3 },
-    ],
-    language,
-    difficulty,
-  }));
-  return items;
+function extractJsonArray(raw) {
+  if (!raw) return null;
+  // try direct parse
+  try { const p = JSON.parse(raw); if (Array.isArray(p)) return p; if (Array.isArray(p?.items)) return p.items; } catch {}
+  // extract the first JSON array from text
+  const m = raw.match(/\[\s*[\s\S]*\]/);
+  if (!m) return null;
+  try { const p = JSON.parse(m[0]); return Array.isArray(p) ? p : null; } catch {}
+  return null;
 }
 
-/* -----------------------------
-  Helper: call OpenRouter API
------------------------------*/
+function normItem(it, qtype, language, difficulty) {
+  const base = {
+    id: it?.id || (typeof crypto !== "undefined" ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`),
+    type: it?.type || qtype,
+    text: it?.text || "",
+    language: it?.language || language,
+    difficulty: it?.difficulty || difficulty,
+  };
+  if (base.type === "coderunner") {
+    return {
+      ...base,
+      answer: it?.answer || "print('OK')",
+      testcases: Array.isArray(it?.testcases) ? it.testcases : [{ input: "", expected: "" }],
+    };
+  }
+  return {
+    ...base,
+    options: Array.isArray(it?.options)
+      ? it.options
+      : [
+          { text: "Option A", correct: true },
+          { text: "Option B", correct: false },
+          { text: "Option C", correct: false },
+          { text: "Option D", correct: false },
+        ],
+  };
+}
+
 async function callOpenRouter(prompt) {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) throw new Error("Missing OpenRouter API key");
-
-  const model = process.env.MODEL_NAME || "gpt-4o-mini";
-  console.log("➡️ Calling OpenRouter with model:", model);
-
+  const key = process.env.OPENROUTER_API_KEY;
+  if (!key) return { error: "Missing OPENROUTER_API_KEY" };
+  const model = process.env.LLM_MODEL || "openai/gpt-4o-mini";
   try {
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
+        Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
+        "HTTP-Referer": "http://localhost:3000",
+        "X-Title": "Question Generator",
       },
       body: JSON.stringify({
         model,
+        temperature: 0.7,
         messages: [{ role: "user", content: prompt }],
       }),
     });
-
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`OpenRouter API error ${res.status}: ${text}`);
-    }
-
+    if (!res.ok) return { error: `OpenRouter HTTP ${res.status}` };
     const data = await res.json();
-    console.log("✅ OpenRouter response received");
-    return data.choices?.[0]?.message?.content || "";
-  } catch (err) {
-    console.error("❌ OpenRouter call failed:", err);
-    return null;
+    const content = data?.choices?.[0]?.message?.content || "";
+    return { content };
+  } catch (e) {
+    return { error: String(e) };
   }
 }
 
-/* -----------------------------
-  Helper: call Ollama (optional fallback)
------------------------------*/
-async function callOllama(prompt, url) {
-  console.log("➡️ Calling Ollama...");
-  try {
-    const res = await fetch(`${url.replace(/\/$/, "")}/api/generate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "llama3", prompt }),
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Ollama API error ${res.status}: ${text}`);
-    }
-
-    const data = await res.json();
-    console.log("✅ Ollama response received");
-    return data.response || "";
-  } catch (err) {
-    console.error("❌ Ollama call failed:", err);
-    return null;
-  }
-}
-
-/* -----------------------------
-  Main handler
------------------------------*/
 export async function POST(req) {
   try {
     const body = await req.json();
-    const {
-      topic = "",
-      language = "en",
-      qtype = "multiple-choice",
-      difficulty = "medium",
-      count = 5,
-    } = body;
+    const topic = String(body?.topic || "").trim();
+    const language = body?.language || "en";
+    const qtype = body?.qtype || body?.type || "multiple-choice";
+    const difficulty = body?.difficulty || "medium";
+    const target = Math.max(1, Math.min(300, Number(body?.count ?? body?.n ?? 1)));
+    const per = Math.max(1, Math.min(Number(body?.batchSize || 10), 50));
 
     if (!topic) {
-      return new Response(
-        JSON.stringify({ ok: false, error: "Missing topic" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ ok: false, error: "Missing topic" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    const n = count;
-    const OLLAMA_URL = process.env.OLLAMA_URL;
+    const out = [];
+    const seen = new Set();
+    let attempts = 0;
+    const maxAttempts = 60;
 
-    console.log("🔍 Generating questions with:", {
-      topic,
-      language,
-      qtype,
-      difficulty,
-      n,
-      hasOllama: !!OLLAMA_URL,
-      usingOpenRouter: true,
-    });
+    while (out.length < target && attempts < maxAttempts) {
+      const need = Math.min(per, target - out.length);
+      const prompt =
+`Generate ${need} ${qtype} questions about "${topic}" in ${language}.
+Return ONLY a pure JSON array, no prose:
 
-    // Build the prompt
-    const prompt = `
-Generate ${n} ${qtype} questions about "${topic}" in ${language}.
-Return only JSON in the format:
 [
   {
     "id": "uuid",
     "type": "${qtype}",
     "text": "Question text",
-    "options": [
-      {"text": "Option A", "correct": true/false},
-      {"text": "Option B", "correct": true/false},
-      {"text": "Option C", "correct": true/false},
-      {"text": "Option D", "correct": true/false}
-    ],
+    ${qtype === "coderunner"
+      ? `"answer": "reference answer", "testcases": [{"input":"","expected":""}]`
+      : `"options": [
+          {"text":"Option A","correct":true/false},
+          {"text":"Option B","correct":true/false},
+          {"text":"Option C","correct":true/false},
+          {"text":"Option D","correct":true/false}
+        ]`
+    },
     "language": "${language}",
     "difficulty": "${difficulty}"
   }
-]
-`;
+]`;
 
-    // Try OpenRouter first
-    let raw = await callOpenRouter(prompt);
+      const { content, error } = await callOpenRouter(prompt);
+      if (error && REQUIRE_LLM) {
+        return new Response(JSON.stringify({ ok: false, error }), {
+          status: 502,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
 
-    // If OpenRouter fails, fallback to Ollama
-    if (!raw && OLLAMA_URL) raw = await callOllama(prompt, OLLAMA_URL);
+      const items = extractJsonArray(content || "");
+      if (!items && REQUIRE_LLM) {
+        return new Response(JSON.stringify({ ok: false, error: "LLM returned non-JSON content" }), {
+          status: 502,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
 
-    // Fallback to mock questions
-    if (!raw) {
-      console.warn("⚠️ LLM response empty, falling back to mock");
-      const mock = mockQuestions(topic, language, qtype, difficulty, n);
-      return new Response(JSON.stringify({ ok: true, items: mock }), {
-        headers: { "Content-Type": "application/json" },
-      });
+      const arr = Array.isArray(items) ? items : [];
+      for (const it of arr) {
+        const key = String(it?.text || "").toLowerCase().trim();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        out.push(normItem(it, qtype, language, difficulty));
+        if (out.length >= target) break;
+      }
+      attempts++;
     }
 
-    // Parse JSON
-    // Extract first JSON array from raw text
-let parsed = null;
-try {
-  const match = raw.match(/\[.*\]/s); // 's' = dot matches newline
-  if (match) {
-    parsed = JSON.parse(match[0]);
-  } else {
-    throw new Error("No JSON array found in LLM response");
-  }
-} catch (err) {
-  console.error("⚠️ Could not parse LLM JSON:", err, raw);
-  parsed = mockQuestions(topic, language, qtype, difficulty, n);
-}
-
-
-    const items = Array.isArray(parsed)
-      ? parsed
-      : Array.isArray(parsed.items)
-      ? parsed.items
-      : mockQuestions(topic, language, qtype, difficulty, n);
-
-    return new Response(JSON.stringify({ ok: true, items }), {
+    return new Response(JSON.stringify({ ok: true, items: out }), {
       headers: { "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("❌ API Error:", err);
-    return new Response(
-      JSON.stringify({ ok: false, error: err.message || String(err) }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ ok: false, error: err?.message || String(err) }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }
