@@ -137,14 +137,31 @@ export default function Home() {
   }
 
   /* -----------------------------
-      CodeRunner check (simple demo)
+      CodeRunner check 
   -----------------------------*/
   function checkCode(q) {
-    if (!q.userCode) return;
-    let correct = false;
-    if (q.answer && q.userCode.trim() === q.answer.trim()) correct = true;
-    onUpdate(q.id, { ...q, checkResult: correct ? "✅ Correct!" : "❌ Incorrect" });
+  if (!q.userCode) return;
+
+  let correct = true;
+
+  if (q.type === "coderunner" && Array.isArray(q.testcases)) {
+    for (const tc of q.testcases) {
+      // simple check: does user code include the expected output or key expression
+      const expected = String(tc.expected).trim();
+      if (expected && !q.userCode.includes(expected)) {
+        correct = false;
+        break;
+      }
+    }
+  } else if (q.answer) {
+    // fallback: check if userCode contains the key lines from reference answer
+    const lines = q.answer.split("\n").map(l => l.trim()).filter(Boolean);
+    correct = lines.every(l => q.userCode.includes(l));
   }
+
+  onUpdate(q.id, { ...q, checkResult: correct ? "✅ Correct!" : "❌ Incorrect" });
+}
+
 
   /* -----------------------------
       Export
@@ -192,7 +209,7 @@ export default function Home() {
             <label>Question Type</label>
             <select value={qtype} onChange={(e) => setQtype(e.target.value)}>
               <option value="multiple-choice">Multiple Choice</option>
-              <option value="coderunner">CodeRunner (shortanswer demo)</option>
+              <option value="coderunner">CodeRunner </option>
             </select>
           </div>
           <div>

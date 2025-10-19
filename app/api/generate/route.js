@@ -27,7 +27,12 @@ function normItem(it, qtype, language, difficulty) {
     return {
       ...base,
       answer: it?.answer || "print('OK')",
-      testcases: Array.isArray(it?.testcases) ? it.testcases : [{ input: "", expected: "" }],
+testcases: it?.testcases?.length
+  ? it.testcases
+  : [
+      { input: "1+1", expected: "2" },
+      { input: "2*3", expected: "6" }
+    ],
     };
   }
   return {
