@@ -4,7 +4,7 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import "prismjs/themes/prism-tomorrow.css";
 
-// editor
+// Editor
 const Editor = dynamic(() => import("react-simple-code-editor"), { ssr: false });
 
 // Prism
@@ -23,7 +23,6 @@ export default function QuestionCard({
   onRegenerate,
   onUpdate,
   onDelete,
-  checkCode,
 }) {
   if (!q) return <div className="card">⚠️ No question data provided.</div>;
 
@@ -65,12 +64,34 @@ export default function QuestionCard({
     setIsCorrect(option.correct);
   };
 
-  const handleRunCode = () => {
-    const code = userCode.trim().toLowerCase();
-    if (!code) return setFeedback("⚠️ Please write some code first!");
-    if (code.includes("print") || code.includes("console.log") || code.includes("system.out"))
-      setFeedback("✅ Output looks correct!");
-    else setFeedback("❌ Code seems incorrect. Try again.");
+  /* ---------- LLM-based CodeRunner ---------- */
+  const handleCheckCodeWithLLM = async () => {
+    if (!userCode.trim()) return setFeedback("⚠️ Please write some code first!");
+
+    try {
+      setFeedback("⏳ Checking answer...");
+      const res = await fetch("/api/check-answer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          questionText: question.text,
+          userAnswer: userCode,
+          expectedAnswer: question.expectedAnswer || "",
+          language: question.language,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.error) {
+        setFeedback("❌ Error: " + data.error);
+        return;
+      }
+
+      setFeedback(data.feedback || (data.correct ? "✅ Correct!" : "❌ Incorrect"));
+      setIsCorrect(data.correct);
+    } catch (e) {
+      setFeedback("❌ Error: " + e.message);
+    }
   };
 
   /* ---------- Option editing ---------- */
@@ -214,7 +235,7 @@ export default function QuestionCard({
       {question.type === "coderunner" && (
         <div style={{ marginTop: 16 }}>
           <div className="small" style={{ marginBottom: 6 }}>
-            Write and test your code:
+            Write your answer:
           </div>
           <div
             style={{
@@ -238,11 +259,14 @@ export default function QuestionCard({
               placeholder="// Write your code here..."
             />
           </div>
-          <button className="btn" style={{ marginTop: 8 }} onClick={handleRunCode}>
-            ▶ Run Code
+          <button className="btn" style={{ marginTop: 8 }} onClick={handleCheckCodeWithLLM}>
+            ▶ Check Answer
           </button>
+
           {feedback && (
-            <p style={{ marginTop: 6, color: "var(--muted)", fontSize: "14px" }}>{feedback}</p>
+            <p style={{ marginTop: 6, color: isCorrect ? "var(--ok)" : "var(--bad)", fontWeight: 500 }}>
+              {feedback}
+            </p>
           )}
         </div>
       )}

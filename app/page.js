@@ -5,7 +5,7 @@ import QuestionCard from "./components/QuestionCard";
 import StatusSummary from "./components/StatusSummary";
 import { buildMoodleXml, download } from "../lib/moodleXml";
 
-export default function Home() {
+export default function Page() {
   const [topic, setTopic] = useState("");
   const [language, setLanguage] = useState("en");
   const [qtype, setQtype] = useState("multiple-choice");
@@ -91,34 +91,33 @@ export default function Home() {
   }
 
   async function onRegenerate(id) {
-  try {
-    const res = await fetch("/api/regenerate", {   // ✅ use regenerate route
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id, topic, language, qtype, difficulty }),
-    });
-    const data = await res.json();
-    const replacement = data?.item;
-    if (!replacement) throw new Error("Regeneration failed");
+    try {
+      const res = await fetch("/api/regenerate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id, topic, language, qtype, difficulty }),
+      });
+      const data = await res.json();
+      const replacement = data?.item;
+      if (!replacement) throw new Error("Regeneration failed");
 
-    const idx = questions.findIndex((q) => q.id === id);
-    if (idx === -1) return;
-    const copy = [...questions];
-    copy[idx] = replacement;
+      const idx = questions.findIndex((q) => q.id === id);
+      if (idx === -1) return;
+      const copy = [...questions];
+      copy[idx] = replacement;
 
-    const acc = new Set(acceptedIds);
-    const rej = new Set(rejectedIds);
-    acc.delete(id);
-    rej.delete(id);
+      const acc = new Set(acceptedIds);
+      const rej = new Set(rejectedIds);
+      acc.delete(id);
+      rej.delete(id);
 
-    setQuestions(copy);
-    setAcceptedIds(acc);
-    setRejectedIds(rej);
-  } catch (e) {
-    alert(String(e));
+      setQuestions(copy);
+      setAcceptedIds(acc);
+      setRejectedIds(rej);
+    } catch (e) {
+      alert(String(e));
+    }
   }
-}
-
 
   function onUpdate(id, updated) {
     const copy = questions.map((q) => (q.id === id ? updated : q));
@@ -135,33 +134,6 @@ export default function Home() {
     setAcceptedIds(acc);
     setRejectedIds(rej);
   }
-
-  /* -----------------------------
-      CodeRunner check 
-  -----------------------------*/
-  function checkCode(q) {
-  if (!q.userCode) return;
-
-  let correct = true;
-
-  if (q.type === "coderunner" && Array.isArray(q.testcases)) {
-    for (const tc of q.testcases) {
-      // simple check: does user code include the expected output or key expression
-      const expected = String(tc.expected).trim();
-      if (expected && !q.userCode.includes(expected)) {
-        correct = false;
-        break;
-      }
-    }
-  } else if (q.answer) {
-    // fallback: check if userCode contains the key lines from reference answer
-    const lines = q.answer.split("\n").map(l => l.trim()).filter(Boolean);
-    correct = lines.every(l => q.userCode.includes(l));
-  }
-
-  onUpdate(q.id, { ...q, checkResult: correct ? "✅ Correct!" : "❌ Incorrect" });
-}
-
 
   /* -----------------------------
       Export
@@ -209,7 +181,7 @@ export default function Home() {
             <label>Question Type</label>
             <select value={qtype} onChange={(e) => setQtype(e.target.value)}>
               <option value="multiple-choice">Multiple Choice</option>
-              <option value="coderunner">CodeRunner </option>
+              <option value="coderunner">CodeRunner</option>
             </select>
           </div>
           <div>
@@ -259,7 +231,6 @@ export default function Home() {
             onRegenerate={onRegenerate}
             onUpdate={onUpdate}
             onDelete={onDelete}
-            checkCode={checkCode}
           />
         ))}
         {!questions.length && !loading ? (
