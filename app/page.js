@@ -17,6 +17,8 @@ export default function Page() {
   const [questions, setQuestions] = useState([]);
   const [acceptedIds, setAcceptedIds] = useState(new Set());
   const [rejectedIds, setRejectedIds] = useState(new Set());
+  // track per-question reviewer selections (for live aggregate grading)
+  const [selections, setSelections] = useState({}); // { [questionId]: { type: 'single'|'multi', indices: [nums] } }
 
   const accepted = useMemo(
     () => questions.filter(q => acceptedIds.has(q.id)),
@@ -29,6 +31,85 @@ export default function Page() {
       : rejectedIds.has(id)
       ? "rejected"
       : "open";
+
+  /* ---------- Selection handling & aggregate grade ---------- */
+  const getMaxPoints = (q) => {
+    const diff = (q?.difficulty || "medium").toLowerCase();
+    if (diff === "easy") return 0.5;
+    if (diff === "hard") return 2;
+    return 1;
+  };
+
+  const computeMultiSelectPoints = (q, selIdxArr) => {
+    const max = getMaxPoints(q);
+    const opts = q.options || [];
+    const C = opts.filter((o) => o.correct).length || 0;
+    if (C === 0) return 0;
+    const selected = selIdxArr || [];
+    const correctSelected = selected.filter((i) => opts[i] && opts[i].correct).length;
+    const wrongSelected = selected.filter((i) => opts[i] && !opts[i].correct).length;
+    const denom = C + wrongSelected;
+    if (denom === 0) return 0;
+    const fraction = correctSelected / denom;
+    return Math.max(0, Math.min(1, fraction)) * max;
+  };
+
+  const computeAwardedPoints = (q, sel) => {
+    const max = getMaxPoints(q);
+    if (!sel) return null;
+    if (sel.type === "coderunner") {
+      // coderunner answers report awarded points from QuestionCard
+      return typeof sel.awarded === "number" ? sel.awarded : null;
+    }
+    if (!sel.indices || sel.indices.length === 0) return null;
+    const opts = q.options || [];
+    const C = opts.filter((o) => o.correct).length || 0;
+    if (C <= 1) {
+      // single-correct style
+      const idx = sel.indices[0];
+      const opt = opts[idx];
+      if (!opt) return null;
+      return opt.correct ? max : 0;
+    }
+    // multi-correct
+    return computeMultiSelectPoints(q, sel.indices);
+  };
+
+  const getGradeFromPercent = (pct) => {
+    if (pct >= 90) return { label: "Final Grade 1: Sehr gut", color: "#34d399" };
+    if (pct >= 78) return { label: "Gut", color: "#f59e0b" };
+    if (pct >= 65) return { label: "Befriedigend", color: "#60a5fa" };
+    if (pct >= 50) return { label: "Genügend", color: "#a78bfa" };
+    return { label: "Nicht Genügend", color: "#ef4444" };
+  };
+
+  function handleSelectionChange(id, payload) {
+    setSelections((prev) => {
+      const copy = { ...prev };
+      if (!payload) delete copy[id];
+      else if (payload.type === "coderunner") copy[id] = payload;
+      else if (!payload.indices || payload.indices.length === 0) delete copy[id];
+      else copy[id] = payload;
+      return copy;
+    });
+  }
+
+  const aggregate = useMemo(() => {
+    let awarded = 0;
+    let max = 0;
+    for (const [id, sel] of Object.entries(selections)) {
+      const q = questions.find((x) => x.id === id);
+      if (!q) continue;
+      const m = getMaxPoints(q);
+      const a = computeAwardedPoints(q, sel);
+      if (a === null) continue;
+      awarded += a;
+      max += m;
+    }
+    const pct = max > 0 ? Math.round((awarded / max) * 100) : 0;
+    const grade = getGradeFromPercent(pct);
+    return { awarded, max, pct, grade };
+  }, [selections, questions]);
 
   /* -----------------------------
       Generate AI questions
@@ -241,6 +322,30 @@ export default function Page() {
 
       <StatusSummary total={questions.length} accepted={acceptedIds.size} rejected={rejectedIds.size} />
 
+      <div className="card" style={{ marginTop: 12 }}>
+        <div className="section-title">Grading Legend / Bewertung</div>
+        <div className="small" style={{ display: "grid", gap: 8 }}>
+          <div><span className="tag ok" style={{ marginRight: 8 }}></span> ≥ 90% — Final Grade 1: Sehr gut (green)</div>
+          <div><span className="tag warn" style={{ marginRight: 8 }}></span> 78–89% — Gut (orange)</div>
+          <div><span className="tag blue" style={{ marginRight: 8 }}></span> 65–77% — Befriedigend (blue)</div>
+          <div><span className="tag purple" style={{ marginRight: 8 }}></span> 50–64% — Genügend (purple)</div>
+          <div><span className="tag bad" style={{ marginRight: 8 }}></span> &lt; 50% — Nicht Genügend (red)</div>
+        </div>
+      </div>
+
+      {aggregate.max > 0 && (
+        <div className="card" style={{ marginTop: 12 }}>
+          <div className="section-title">Live Selection Preview</div>
+          <div className="small" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontWeight: 700 }}>{aggregate.pct}%</div>
+              <div style={{ marginTop: 4 }}>{aggregate.awarded}/{aggregate.max} points</div>
+            </div>
+            <div style={{ color: aggregate.grade.color, fontWeight: 600 }}>{aggregate.grade.label}</div>
+          </div>
+        </div>
+      )}
+
       <div className="section-title">Questions</div>
       <div className="list">
         {questions.map((q) => (
@@ -254,6 +359,7 @@ export default function Page() {
             onRegenerate={onRegenerate}
             onUpdate={onUpdate}
             onDelete={onDelete}
+            onSelectionChange={handleSelectionChange}
           />
         ))}
         {!questions.length && !loading ? (

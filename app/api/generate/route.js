@@ -100,7 +100,32 @@ export async function POST(req) {
 
     while (out.length < target && attempts < maxAttempts) {
       const need = Math.min(per, target - out.length);
-      const prompt =
+      let prompt = '';
+      if (qtype === 'multiple-choice') {
+        // Instruct the LLM to produce a mix: ~50% multi-correct and ~50% single-correct MC questions
+        prompt =
+`Generate ${need} multiple-choice questions about "${topic}" in ${language}.
+Make approximately half of the returned questions have multiple correct options (more than one option with "correct": true) and half have exactly one correct option.
+Be explicit in the JSON: for multi-answer questions include multiple options with "correct": true; for single-answer questions include exactly one option with "correct": true.
+Return ONLY a pure JSON array, no prose:
+
+[
+  {
+    "id": "uuid",
+    "type": "multiple-choice",
+    "text": "Question text",
+    "options": [
+      {"text":"Option A","correct":true/false},
+      {"text":"Option B","correct":true/false},
+      {"text":"Option C","correct":true/false},
+      {"text":"Option D","correct":true/false}
+    ],
+    "language": "${language}",
+    "difficulty": "${difficulty}"
+  }
+]`;
+      } else {
+        prompt =
 `Generate ${need} ${qtype} questions about "${topic}" in ${language}.
 Return ONLY a pure JSON array, no prose:
 
@@ -122,6 +147,7 @@ Return ONLY a pure JSON array, no prose:
     "difficulty": "${difficulty}"
   }
 ]`;
+      }
 
       const { content, error } = await callOpenRouter(prompt);
       if (error && REQUIRE_LLM) {

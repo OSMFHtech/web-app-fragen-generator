@@ -22,12 +22,14 @@ export default function QuestionCard({
   onEdit,
   onRegenerate,
   onUpdate,
+  onSelectionChange,
   onDelete,
 }) {
   if (!q) return <div className="card">⚠️ No question data provided.</div>;
 
   const [question, setQuestion] = useState(q);
   const [selected, setSelected] = useState(null);
+  const [selectedIndices, setSelectedIndices] = useState(new Set());
   const [isCorrect, setIsCorrect] = useState(null);
   const [userCode, setUserCode] = useState("");
   const [feedback, setFeedback] = useState(null);
@@ -58,7 +60,7 @@ export default function QuestionCard({
       ? "(múltiples respuestas posibles)"
       : "(multiple answers possible)";
 
-  /* ---------- Handlers ---------- */
+  /* ---------- Handlers / scoring ---------- */
   const getMaxPoints = (q) => {
     const diff = (q?.difficulty || "medium").toLowerCase();
     if (diff === "easy") return 0.5;
@@ -75,27 +77,68 @@ export default function QuestionCard({
       return llmCorrect ? max : 0;
     }
     // multiple-choice
-    const C = (q.options || []).filter((o) => o.correct).length || 0;
+    const opts = q.options || [];
+    const C = opts.filter((o) => o.correct).length || 0;
     if (C <= 1) {
       return selectedOption ? (selectedOption.correct ? max : 0) : null;
     }
-    // multi-answer: award proportional to number of correct selected / total correct
+    // single selection treated as single-correct selection
     if (!selectedOption) return null;
     const correctSelected = selectedOption.correct ? 1 : 0;
     return (correctSelected / C) * max;
   };
 
-  const handleCheck = (option) => {
+  // compute points for a multi-select combination (selectedIndices: Set of option indices)
+  const computeMultiSelectPoints = (q, selIdxSet) => {
+    const max = getMaxPoints(q);
+    const opts = q.options || [];
+    const C = opts.filter((o) => o.correct).length || 0;
+    if (C === 0) return 0;
+    const selected = Array.from(selIdxSet || []);
+    const correctSelected = selected.filter((i) => opts[i] && opts[i].correct).length;
+    const wrongSelected = selected.filter((i) => opts[i] && !opts[i].correct).length;
+    const denom = C + wrongSelected;
+    if (denom === 0) return 0;
+    const fraction = correctSelected / denom;
+    return Math.max(0, Math.min(1, fraction)) * max;
+  };
+
+  // single-select handler
+  const handleCheck = (option, index) => {
     setSelected(option);
     setIsCorrect(option.correct);
     const pts = computeAwardedPoints(question, option, null);
-    if (pts === null) {
-      setFeedback(null);
-    } else {
+    if (pts === null) setFeedback(null);
+    else {
       const max = getMaxPoints(question);
       const label = pointsLabel(question);
       setFeedback(option.correct ? `✅ Correct — ${pts}/${max} ${label}` : `❌ Incorrect — ${pts}/${max} ${label}`);
     }
+    onSelectionChange?.(question.id, { type: "single", indices: [index] });
+  };
+
+  const toggleSelectIndex = (i) => {
+    const next = new Set(selectedIndices);
+    if (next.has(i)) next.delete(i);
+    else next.add(i);
+    setSelectedIndices(next);
+    // compute preview feedback
+    const pts = computeMultiSelectPoints(question, next);
+    const max = getMaxPoints(question);
+    const pct = max > 0 ? Math.round((pts / max) * 100) : 0;
+    const { label: gradeLabel, color: gradeColor } = getGradeFromPercent(pct);
+    const label = pointsLabel(question);
+    setFeedback(`${pct}% — ${pts}/${max} ${label} — ${gradeLabel}`);
+    // report multi selection upward
+    onSelectionChange?.(question.id, { type: "multi", indices: Array.from(next) });
+  };
+
+  const getGradeFromPercent = (pct) => {
+    if (pct >= 90) return { label: "Final Grade 1: Sehr gut", color: "#34d399" }; // green
+    if (pct >= 78) return { label: "Gut", color: "#f59e0b" }; // orange
+    if (pct >= 65) return { label: "Befriedigend", color: "#60a5fa" }; // blue
+    if (pct >= 50) return { label: "Genügend", color: "#a78bfa" }; // purple
+    return { label: "Nicht Genügend", color: "#ef4444" }; // red
   };
 
   /* ---------- LLM-based CodeRunner ---------- */
@@ -123,12 +166,16 @@ export default function QuestionCard({
 
       setFeedback(data.feedback || (data.correct ? "✅ Correct!" : "❌ Incorrect"));
       setIsCorrect(data.correct);
-      // include points information
-      const pts = computeAwardedPoints(question, null, data.correct);
-      if (pts !== null) {
-        const max = getMaxPoints(question);
-        const label = pointsLabel(question);
-        setFeedback((data.feedback ? data.feedback + " — " : "") + (data.correct ? `✅ Correct — ${pts}/${max} ${label}` : `❌ Incorrect — ${pts}/${max} ${label}`));
+          const pts = computeAwardedPoints(question, null, data.correct);
+          if (pts !== null) {
+            const max = getMaxPoints(question);
+            const label = pointsLabel(question);
+            setFeedback((data.feedback ? data.feedback + " — " : "") + (data.correct ? `✅ Correct — ${pts}/${max} ${label}` : `❌ Incorrect — ${pts}/${max} ${label}`));
+            // report coderunner awarded points to parent for aggregate preview
+            onSelectionChange?.(question.id, { type: "coderunner", awarded: pts, max });
+          } else {
+            // remove any previous coderunner selection from parent
+            onSelectionChange?.(question.id, null);
       }
     } catch (e) {
       setFeedback("❌ Error: " + e.message);
@@ -150,18 +197,14 @@ export default function QuestionCard({
   };
 
   const toggleCorrect = (i) => {
-    const updatedOpts = question.options.map((o, idx) =>
-      idx === i ? { ...o, correct: !o.correct } : o
-    );
+    const updatedOpts = question.options.map((o, idx) => (idx === i ? { ...o, correct: !o.correct } : o));
     const updated = { ...question, options: updatedOpts };
     setQuestion(updated);
     onUpdate?.(updated);
   };
 
   const editOptionText = (i, value) => {
-    const updatedOpts = question.options.map((o, idx) =>
-      idx === i ? { ...o, text: value } : o
-    );
+    const updatedOpts = question.options.map((o, idx) => (idx === i ? { ...o, text: value } : o));
     const updated = { ...question, options: updatedOpts };
     setQuestion(updated);
     onUpdate?.(updated);
@@ -192,89 +235,49 @@ export default function QuestionCard({
       {question.type === "multiple-choice" && (
         <div style={{ marginTop: 10 }}>
           {isMultiAnswer && (
-            <p className="small" style={{ color: "var(--accent-2)", marginBottom: 6 }}>
-              {multiText}
-            </p>
+            <p className="small" style={{ color: "var(--accent-2)", marginBottom: 6 }}>{multiText}</p>
           )}
 
           {question.options?.map((opt, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-              <button
-                onClick={() => handleCheck(opt)}
-                className="btn muted"
-                style={{
-                  flexGrow: 1,
-                  textAlign: "left",
-                  justifyContent: "flex-start",
-                  border:
-                    selected === opt
-                      ? opt.correct
-                        ? "1px solid var(--ok)"
-                        : "1px solid var(--bad)"
-                      : "1px solid var(--border)",
-                  background:
-                    selected === opt
-                      ? opt.correct
-                        ? "rgba(52,211,153,0.15)"
-                        : "rgba(239,68,68,0.15)"
-                      : "var(--panel)",
-                  color: "var(--text)",
-                }}
-              >
-                <input
-                  type="text"
-                  value={opt.text}
-                  onChange={(e) => editOptionText(i, e.target.value)}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: "var(--text)",
-                    width: "90%",
-                    outline: "none",
-                  }}
-                />
-              </button>
-              <button
-                className="btn ok"
-                onClick={() => toggleCorrect(i)}
-                title="Toggle correct"
-                style={{
-                  padding: "6px 10px",
-                  background: opt.correct ? "var(--ok)" : "#1a2344",
-                  color: opt.correct ? "#0b1020" : "var(--text)",
-                }}
-              >
-                ✓
-              </button>
-              <button
-                className="btn bad"
-                onClick={() => handleDeleteOption(i)}
-                title="Delete option"
-                style={{ padding: "6px 10px" }}
-              >
-                ✕
-              </button>
+              {isMultiAnswer ? (
+                <label style={{ display: "flex", alignItems: "center", flexGrow: 1 }}>
+                  <input type="checkbox" checked={selectedIndices.has(i)} onChange={() => toggleSelectIndex(i)} style={{ marginRight: 8 }} />
+                  <input type="text" value={opt.text} onChange={(e) => editOptionText(i, e.target.value)} style={{ background: "transparent", border: "none", color: "var(--text)", width: "100%", outline: "none" }} />
+                </label>
+              ) : (
+                <button onClick={() => handleCheck(opt, i)} className="btn muted" style={{ flexGrow: 1, textAlign: "left", justifyContent: "flex-start", border: selected === opt ? (opt.correct ? "1px solid var(--ok)" : "1px solid var(--bad)") : "1px solid var(--border)", background: selected === opt ? (opt.correct ? "rgba(52,211,153,0.15)" : "rgba(239,68,68,0.15)") : "var(--panel)", color: "var(--text)" }}>
+                  <input type="text" value={opt.text} onChange={(e) => editOptionText(i, e.target.value)} style={{ background: "transparent", border: "none", color: "var(--text)", width: "90%", outline: "none" }} />
+                </button>
+              )}
+              <button className="btn ok" onClick={() => toggleCorrect(i)} title="Toggle correct" style={{ padding: "6px 10px", background: opt.correct ? "var(--ok)" : "#1a2344", color: opt.correct ? "#0b1020" : "var(--text)" }}>✓</button>
+              <button className="btn bad" onClick={() => handleDeleteOption(i)} title="Delete option" style={{ padding: "6px 10px" }}>✕</button>
             </div>
           ))}
 
-          <button
-            className="btn"
-            style={{ marginTop: 8 }}
-            onClick={handleAddOption}
-          >
-            + Add Option
-          </button>
+          <button className="btn" style={{ marginTop: 8 }} onClick={handleAddOption}>+ Add Option</button>
+
+          {/* Multi-select live preview */}
+          {isMultiAnswer && (
+            <div style={{ marginTop: 8, padding: 8, borderRadius: 8, border: "1px solid var(--border)", background: "#0e1530" }}>
+              {(() => {
+                const pts = computeMultiSelectPoints(question, selectedIndices);
+                const max = getMaxPoints(question);
+                const pct = max > 0 ? Math.round((pts / max) * 100) : 0;
+                const grade = getGradeFromPercent(pct);
+                return (
+                  <div>
+                    <div style={{ fontWeight: 600 }}>Preview</div>
+                    <div className="small" style={{ marginTop: 6 }}>{pct}% • {pts}/{max} {pointsLabel(question)}</div>
+                    <div className="small" style={{ marginTop: 6, color: grade.color }}>{grade.label}</div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
 
           {isCorrect !== null && (
-            <p
-              style={{
-                marginTop: 6,
-                color: isCorrect ? "var(--ok)" : "var(--bad)",
-                fontWeight: 500,
-              }}
-            >
-              {isCorrect ? "✅ Correct!" : "❌ Incorrect, try again."}
-            </p>
+            <p style={{ marginTop: 6, color: isCorrect ? "var(--ok)" : "var(--bad)", fontWeight: 500 }}>{isCorrect ? "✅ Correct!" : "❌ Incorrect, try again."}</p>
           )}
         </div>
       )}
@@ -282,64 +285,25 @@ export default function QuestionCard({
       {/* CODE RUNNER */}
       {question.type === "coderunner" && (
         <div style={{ marginTop: 16 }}>
-          <div className="small" style={{ marginBottom: 6 }}>
-            Write your answer:
+          <div className="small" style={{ marginBottom: 6 }}>Write your answer:</div>
+          <div style={{ border: "1px solid var(--border)", borderRadius: "8px", overflow: "hidden", background: "#0e1530" }}>
+            <Editor value={userCode} onValueChange={setUserCode} highlight={(code) => highlight(code, codeLang, "java")} padding={12} className="font-mono text-sm" style={{ fontFamily: "monospace", color: "var(--text)", minHeight: "120px" }} placeholder="// Write your code here..." />
           </div>
-          <div
-            style={{
-              border: "1px solid var(--border)",
-              borderRadius: "8px",
-              overflow: "hidden",
-              background: "#0e1530",
-            }}
-          >
-            <Editor
-              value={userCode}
-              onValueChange={setUserCode}
-              highlight={(code) => highlight(code, codeLang, "java")}
-              padding={12}
-              className="font-mono text-sm"
-              style={{
-                fontFamily: "monospace",
-                color: "var(--text)",
-                minHeight: "120px",
-              }}
-              placeholder="// Write your code here..."
-            />
-          </div>
-          <button className="btn" style={{ marginTop: 8 }} onClick={handleCheckCodeWithLLM}>
-            ▶ Check Answer
-          </button>
+          <button className="btn" style={{ marginTop: 8 }} onClick={handleCheckCodeWithLLM}>▶ Check Answer</button>
 
           {feedback && (
-            <p style={{ marginTop: 6, color: isCorrect ? "var(--ok)" : "var(--bad)", fontWeight: 500 }}>
-              {feedback}
-            </p>
+            <p style={{ marginTop: 6, color: isCorrect ? "var(--ok)" : "var(--bad)", fontWeight: 500 }}>{feedback}</p>
           )}
         </div>
       )}
 
       {/* ACTION BUTTONS */}
       <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
-        <button className="btn ok" onClick={() => onAccept?.(question)}>
-          Accept
-        </button>
-        <button className="btn warn" onClick={() => onReject?.(question.id)}>
-          Reject
-        </button>
-        {onEdit && (
-          <button className="btn muted" onClick={() => onEdit(question.id)}>
-            Edit
-          </button>
-        )}
-        <button className="btn" onClick={() => onRegenerate?.(question.id)}>
-          Regenerate
-        </button>
-        {onDelete && (
-          <button className="btn bad" onClick={() => onDelete?.(question.id)}>
-            Delete
-          </button>
-        )}
+        <button className="btn ok" onClick={() => onAccept?.(question)}>Accept</button>
+        <button className="btn warn" onClick={() => onReject?.(question.id)}>Reject</button>
+        {onEdit && <button className="btn muted" onClick={() => onEdit(question.id)}>Edit</button>}
+        <button className="btn" onClick={() => onRegenerate?.(question.id)}>Regenerate</button>
+        {onDelete && <button className="btn bad" onClick={() => onDelete?.(question.id)}>Delete</button>}
       </div>
     </div>
   );
