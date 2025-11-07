@@ -77,6 +77,23 @@ export default function Page() {
   }
 
   /* -----------------------------
+      Accept / Reject ALL
+  -----------------------------*/
+  function acceptAll() {
+    // mark all current questions as accepted, clear rejections
+    const ids = new Set(questions.map((q) => q.id));
+    setAcceptedIds(ids);
+    setRejectedIds(new Set());
+  }
+
+  function rejectAll() {
+    // mark all current questions as rejected, clear acceptances
+    const ids = new Set(questions.map((q) => q.id));
+    setRejectedIds(ids);
+    setAcceptedIds(new Set());
+  }
+
+  /* -----------------------------
       Edit / Regenerate / Update / Delete
   -----------------------------*/
   function onEdit(id) {
@@ -208,6 +225,12 @@ export default function Page() {
         <div style={{ display: "flex", gap: 8, marginTop: 12, alignItems: "center" }}>
           <button className="btn" onClick={generate} disabled={loading || !topic}>
             {loading ? "Generating…" : "Generate"}
+          </button>
+          <button className="btn ok" onClick={acceptAll} disabled={questions.length === 0}>
+            Accept all
+          </button>
+          <button className="btn warn" onClick={rejectAll} disabled={questions.length === 0}>
+            Reject all
           </button>
           <button className="btn ok" onClick={exportXml} disabled={accepted.length === 0 || exporting}>
             {exporting ? "Exporting…" : "Export accepted to Moodle XML"}
