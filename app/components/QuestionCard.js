@@ -59,9 +59,43 @@ export default function QuestionCard({
       : "(multiple answers possible)";
 
   /* ---------- Handlers ---------- */
+  const getMaxPoints = (q) => {
+    const diff = (q?.difficulty || "medium").toLowerCase();
+    if (diff === "easy") return 0.5;
+    if (diff === "hard") return 2;
+    return 1; // medium
+  };
+
+  const pointsLabel = (q) => (q?.language === "de" ? "punkte" : "points");
+
+  const computeAwardedPoints = (q, selectedOption, llmCorrect = null) => {
+    const max = getMaxPoints(q);
+    if (q.type === "coderunner") {
+      if (llmCorrect === null) return null;
+      return llmCorrect ? max : 0;
+    }
+    // multiple-choice
+    const C = (q.options || []).filter((o) => o.correct).length || 0;
+    if (C <= 1) {
+      return selectedOption ? (selectedOption.correct ? max : 0) : null;
+    }
+    // multi-answer: award proportional to number of correct selected / total correct
+    if (!selectedOption) return null;
+    const correctSelected = selectedOption.correct ? 1 : 0;
+    return (correctSelected / C) * max;
+  };
+
   const handleCheck = (option) => {
     setSelected(option);
     setIsCorrect(option.correct);
+    const pts = computeAwardedPoints(question, option, null);
+    if (pts === null) {
+      setFeedback(null);
+    } else {
+      const max = getMaxPoints(question);
+      const label = pointsLabel(question);
+      setFeedback(option.correct ? `✅ Correct — ${pts}/${max} ${label}` : `❌ Incorrect — ${pts}/${max} ${label}`);
+    }
   };
 
   /* ---------- LLM-based CodeRunner ---------- */
@@ -89,6 +123,13 @@ export default function QuestionCard({
 
       setFeedback(data.feedback || (data.correct ? "✅ Correct!" : "❌ Incorrect"));
       setIsCorrect(data.correct);
+      // include points information
+      const pts = computeAwardedPoints(question, null, data.correct);
+      if (pts !== null) {
+        const max = getMaxPoints(question);
+        const label = pointsLabel(question);
+        setFeedback((data.feedback ? data.feedback + " — " : "") + (data.correct ? `✅ Correct — ${pts}/${max} ${label}` : `❌ Incorrect — ${pts}/${max} ${label}`));
+      }
     } catch (e) {
       setFeedback("❌ Error: " + e.message);
     }
@@ -131,11 +172,18 @@ export default function QuestionCard({
     <div className="card">
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <strong>{question.type === "coderunner" ? "CodeRunner" : "Multiple Choice"}</strong>
-        <span className="small">
-          #{question.id?.slice(0, 8)} • {question.difficulty || "medium"} •{" "}
-          {question.language || "en"} {statusTag}
-        </span>
+        <div>
+          <strong>{question.type === "coderunner" ? "CodeRunner" : "Multiple Choice"}</strong>
+          <div className="small" style={{ marginTop: 4 }}>
+            #{question.id?.slice(0, 8)} • {question.difficulty || "medium"} • {question.language || "en"}
+          </div>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div className="small">{statusTag}</div>
+          <div className="small" style={{ marginTop: 6 }}>
+            {getMaxPoints(question)} {pointsLabel(question)}
+          </div>
+        </div>
       </div>
 
       <div style={{ marginTop: 8 }} dangerouslySetInnerHTML={{ __html: question.text }} />
