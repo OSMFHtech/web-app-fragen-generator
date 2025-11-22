@@ -1,7 +1,10 @@
 # Benutzerhandbuch
 
-## Ziel
+## Ziel :
 Fragenbank mit LLM erzeugen, prüfen und als Moodle-XML exportieren.
+
+## Einleitung :
+
 
 ## Schritte (Sprint 2~3 Zusammengefasst)
 1. Thema, Sprache (DE/EN), Fragetyp (MC/CodeRunner), Schwierigkeit, Anzahl, Batchgröße.

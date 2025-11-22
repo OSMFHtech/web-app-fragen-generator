@@ -34,6 +34,16 @@ export default function Page() {
 
   /* ---------- Selection handling & aggregate grade ---------- */
   const getMaxPoints = (q) => {
+    // For special types, max is number_of_subitems * 0.5 (each sub-answer = 0.5)
+    if (!q) return 1;
+    if (q.type === 'select-and-drag') {
+      const blanks = q.blanks || (Array.isArray(q.mapping) ? q.mapping.length : 0);
+      return (blanks || 0) * 0.5;
+    }
+    if (q.type === 'list-options') {
+      const defs = Array.isArray(q.definitions) ? q.definitions.length : 0;
+      return (defs || 0) * 0.5;
+    }
     const diff = (q?.difficulty || "medium").toLowerCase();
     if (diff === "easy") return 0.5;
     if (diff === "hard") return 2;
@@ -60,6 +70,23 @@ export default function Page() {
     if (sel.type === "coderunner") {
       // coderunner answers report awarded points from QuestionCard
       return typeof sel.awarded === "number" ? sel.awarded : null;
+    }
+    if (sel.type === 'select-and-drag') {
+      if (typeof sel.awarded === 'number') return sel.awarded;
+      // fallback: compute from placements vs mapping (each correct = 0.5)
+      const mapping = q.mapping || [];
+      const places = sel.placements || [];
+      let correct = 0;
+      for (let i = 0; i < mapping.length; i++) if (places[i] != null && Number(places[i]) === Number(mapping[i])) correct++;
+      return correct * 0.5;
+    }
+    if (sel.type === 'list-options') {
+      if (typeof sel.awarded === 'number') return sel.awarded;
+      const mapping = q.mapping || [];
+      const sels = sel.selections || [];
+      let correct = 0;
+      for (let i = 0; i < mapping.length; i++) if (sels[i] != null && Number(sels[i]) === Number(mapping[i])) correct++;
+      return correct * 0.5;
     }
     if (!sel.indices || sel.indices.length === 0) return null;
     const opts = q.options || [];
@@ -88,6 +115,14 @@ export default function Page() {
       const copy = { ...prev };
       if (!payload) delete copy[id];
       else if (payload.type === "coderunner") copy[id] = payload;
+      else if (payload.type === 'select-and-drag' || payload.type === 'list-options') {
+        // these payloads provide awarded/max or placements/selections
+        if (typeof payload.awarded === 'number' || Array.isArray(payload.placements) || Array.isArray(payload.selections)) {
+          copy[id] = payload;
+        } else {
+          delete copy[id];
+        }
+      }
       else if (!payload.indices || payload.indices.length === 0) delete copy[id];
       else copy[id] = payload;
       return copy;
@@ -280,6 +315,8 @@ export default function Page() {
             <select value={qtype} onChange={(e) => setQtype(e.target.value)}>
               <option value="multiple-choice">Multiple Choice</option>
               <option value="coderunner">CodeRunner</option>
+              <option value="select-and-drag">Select & Drag</option>
+              <option value="list-options">Definition Matching</option>
             </select>
           </div>
           <div>

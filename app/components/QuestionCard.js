@@ -33,6 +33,17 @@ export default function QuestionCard({
   const [isCorrect, setIsCorrect] = useState(null);
   const [userCode, setUserCode] = useState("");
   const [feedback, setFeedback] = useState(null);
+  const [revealAnswers, setRevealAnswers] = useState(false);
+  // select-and-drag state: placements array of length blanks (indices of options or null)
+  const [placements, setPlacements] = useState(() => {
+    if (q.type === 'select-and-drag') return Array(q.blanks || 3).fill(null);
+    return [];
+  });
+  // list-options state: selection per definition
+  const [listSelections, setListSelections] = useState(() => {
+    if (q.type === 'list-options') return Array((q.definitions || []).length).fill(null);
+    return [];
+  });
 
   const codeLang =
     question.language === "python"
@@ -62,6 +73,15 @@ export default function QuestionCard({
 
   /* ---------- Handlers / scoring ---------- */
   const getMaxPoints = (q) => {
+    if (!q) return 1;
+    if (q.type === 'select-and-drag') {
+      const blanks = q.blanks || (Array.isArray(q.mapping) ? q.mapping.length : 0);
+      return (blanks || 0) * 0.5;
+    }
+    if (q.type === 'list-options') {
+      const defs = Array.isArray(q.definitions) ? q.definitions.length : 0;
+      return (defs || 0) * 0.5;
+    }
     const diff = (q?.difficulty || "medium").toLowerCase();
     if (diff === "easy") return 0.5;
     if (diff === "hard") return 2;
@@ -141,45 +161,46 @@ export default function QuestionCard({
     return { label: "Nicht Genügend", color: "#ef4444" }; // red
   };
 
-  /* ---------- LLM-based CodeRunner ---------- */
-  const handleCheckCodeWithLLM = async () => {
-    if (!userCode.trim()) return setFeedback("⚠️ Please write some code first!");
-
-    try {
-      setFeedback("⏳ Checking answer...");
-      const res = await fetch("/api/check-answer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          questionText: question.text,
-          userAnswer: userCode,
-          expectedAnswer: question.expectedAnswer || "",
-          language: question.language,
-        }),
-      });
-
-      const data = await res.json();
-      if (data.error) {
-        setFeedback("❌ Error: " + data.error);
-        return;
-      }
-
-      setFeedback(data.feedback || (data.correct ? "✅ Correct!" : "❌ Incorrect"));
-      setIsCorrect(data.correct);
-          const pts = computeAwardedPoints(question, null, data.correct);
-          if (pts !== null) {
-            const max = getMaxPoints(question);
-            const label = pointsLabel(question);
-            setFeedback((data.feedback ? data.feedback + " — " : "") + (data.correct ? `✅ Correct — ${pts}/${max} ${label}` : `❌ Incorrect — ${pts}/${max} ${label}`));
-            // report coderunner awarded points to parent for aggregate preview
-            onSelectionChange?.(question.id, { type: "coderunner", awarded: pts, max });
-          } else {
-            // remove any previous coderunner selection from parent
-            onSelectionChange?.(question.id, null);
-      }
-    } catch (e) {
-      setFeedback("❌ Error: " + e.message);
+  /* ---------- Helpers for new types ---------- */
+  const computeSelectAndDragPoints = (qq, places) => {
+    const perCorrect = 0.5;
+    const mapping = qq.mapping || [];
+    const blanks = qq.blanks || mapping.length || 0;
+    let correct = 0;
+    for (let i = 0; i < blanks; i++) {
+      if (places && places[i] != null && Number(places[i]) === Number(mapping[i])) correct++;
     }
+    const awarded = correct * perCorrect;
+    const max = blanks * perCorrect;
+    return { awarded, max, correct, blanks };
+  };
+
+  const computeListOptionsPoints = (qq, selections) => {
+    const perCorrect = 0.5;
+    const mapping = qq.mapping || [];
+    const defs = qq.definitions || [];
+    let correct = 0;
+    for (let i = 0; i < defs.length; i++) {
+      if (selections && selections[i] != null && Number(selections[i]) === Number(mapping[i])) correct++;
+    }
+    const awarded = correct * perCorrect;
+    const max = defs.length * perCorrect;
+    return { awarded, max, correct, blanks: defs.length };
+  };
+
+  /* ---------- CodeRunner helper (no automatic LLM checking) ---------- */
+  // The project uses a local Helper button for CodeRunner questions instead of
+  // automatic LLM correctness checking. The helper reveals the reference
+  // solution (the `answer` field) for the question. We intentionally do not
+  // call the /api/check-answer endpoint here.
+  const showHelper = () => {
+    const sol = question.answer || question.expectedAnswer || "";
+    if (!sol) {
+      setFeedback("ℹ️ No reference solution is available for this question.");
+      return;
+    }
+    // Show the reference solution in the feedback area.
+    setFeedback(`🔎 Reference solution:\n${sol}`);
   };
 
   /* ---------- Option editing ---------- */
@@ -216,7 +237,12 @@ export default function QuestionCard({
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <div>
-          <strong>{question.type === "coderunner" ? "CodeRunner" : "Multiple Choice"}</strong>
+          <strong>{
+            question.type === 'coderunner' ? 'CodeRunner'
+            : question.type === 'select-and-drag' ? 'Select & Drag'
+            : question.type === 'list-options' ? 'Definition Matching'
+            : 'Multiple Choice'
+          }</strong>
           <div className="small" style={{ marginTop: 4 }}>
             #{question.id?.slice(0, 8)} • {question.difficulty || "medium"} • {question.language || "en"}
           </div>
@@ -282,6 +308,101 @@ export default function QuestionCard({
         </div>
       )}
 
+      {/* SELECT AND DRAG */}
+      {question.type === 'select-and-drag' && (
+        <div style={{ marginTop: 12 }}>
+          <div className="small" style={{ marginBottom: 6 }}>Fill the blanks by dragging an answer onto each numbered slot.</div>
+          <div style={{ padding: 8, border: '1px solid var(--border)', borderRadius: 8, background: '#071028' }}>
+            <div style={{ marginBottom: 8 }}>
+              {/* Render text with blanks as drop targets */}
+              {(() => {
+                const blanks = question.blanks || question.mapping?.length || 3;
+                // split on markers like (1), (2)
+                let html = question.text || '';
+                // We'll render as React elements below instead of raw html
+                return (
+                  <div>
+                    {String(html).split(/(\(\d+\))/).map((part, idx) => {
+                      const m = part.match(/\((\d+)\)/);
+                      if (m) {
+                        const n = Number(m[1]) - 1;
+                        const placed = placements[n];
+                        return (
+                          <span key={idx} onDragOver={(e)=>e.preventDefault()} onDrop={(e)=>{
+                            const data = e.dataTransfer.getData('text/plain');
+                            const optIdx = Number(data);
+                            const next = [...placements];
+                            next[n] = optIdx;
+                            setPlacements(next);
+                            const { awarded, max } = computeSelectAndDragPoints(question, next);
+                            onSelectionChange?.(question.id, { type: 'select-and-drag', placements: next, awarded, max });
+                          }} style={{ display: 'inline-block', minWidth: 120, minHeight: 28, margin: '0 6px', padding: '6px', border: '1px dashed var(--border)', borderRadius: 6, background: placed != null ? 'rgba(99,102,241,0.06)' : 'transparent' }}>{placed != null ? question.options[placed]?.text : `(${m[1]})`}</span>
+                        );
+                      }
+                      return <span key={idx}>{part}</span>;
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>Options (drag onto blanks)</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {question.options?.map((opt, i) => (
+                  <div key={i} draggable onDragStart={(e)=>e.dataTransfer.setData('text/plain', String(i))} style={{ padding: 8, borderRadius: 6, border: '1px solid var(--border)', background: '#071733', cursor: 'grab' }}>{opt.text}</div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button className="btn" onClick={() => { setPlacements(Array(question.blanks || question.mapping?.length || 3).fill(null)); setRevealAnswers(false); setFeedback(null); onSelectionChange?.(question.id, { type: 'select-and-drag', placements: Array(question.blanks || question.mapping?.length || 3).fill(null), awarded: 0, max: (question.blanks||question.mapping?.length||3)*0.5 }); }}>Reset</button>
+              <button className="btn muted" onClick={() => { setRevealAnswers(true); const { awarded, max } = computeSelectAndDragPoints(question, placements); setFeedback(`Preview: ${awarded}/${max} points`); onSelectionChange?.(question.id, { type: 'select-and-drag', placements, awarded, max }); }}>Reveal answers</button>
+            </div>
+
+            {revealAnswers && (
+              <div style={{ marginTop: 8 }} className="small">Correct mapping: { (question.mapping || []).map((mi, idx) => `(${idx+1}) → ${question.options?.[mi]?.text || '—'}`).join(' · ') }</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* LIST OPTIONS */}
+      {question.type === 'list-options' && (
+        <div style={{ marginTop: 12 }}>
+          <div className="small" style={{ marginBottom: 6 }}>Select the correct answer for each definition from the dropdown list.</div>
+          <div style={{ padding: 8, border: '1px solid var(--border)', borderRadius: 8, background: '#071028' }}>
+            {(question.definitions || []).map((d, i) => (
+              <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                <div style={{ flex: 1, wordBreak: 'break-word' }}>{d}</div>
+                <select style={{ width: 140, minWidth: 140, maxWidth: 140 }} value={listSelections[i] ?? ''} onChange={(e)=>{
+                  const val = e.target.value === '' ? null : Number(e.target.value);
+                  const next = [...listSelections];
+                  next[i] = val;
+                  setListSelections(next);
+                  const { awarded, max } = computeListOptionsPoints(question, next);
+                  onSelectionChange?.(question.id, { type: 'list-options', selections: next, awarded, max });
+                }}>
+                  <option value="">— choose —</option>
+                  {question.options?.map((opt, oi) => (
+                    <option key={oi} value={oi}>{opt.text}</option>
+                  ))}
+                </select>
+              </div>
+            ))}
+
+            <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+              <button className="btn" onClick={() => { setListSelections(Array((question.definitions||[]).length).fill(null)); onSelectionChange?.(question.id, { type: 'list-options', selections: Array((question.definitions||[]).length).fill(null), awarded: 0, max: (question.definitions||[]).length*0.5 }); }}>Reset</button>
+              <button className="btn muted" onClick={() => { setRevealAnswers(true); const { awarded, max } = computeListOptionsPoints(question, listSelections); setFeedback(`Preview: ${awarded}/${max} points`); onSelectionChange?.(question.id, { type: 'list-options', selections: listSelections, awarded, max }); }}>Reveal answers</button>
+            </div>
+
+            {revealAnswers && (
+              <div style={{ marginTop: 8 }} className="small">Correct mapping: { (question.mapping || []).map((mi, idx) => `(${idx+1}) → ${question.options?.[mi]?.text || '—'}`).join(' · ') }</div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* CODE RUNNER */}
       {question.type === "coderunner" && (
         <div style={{ marginTop: 16 }}>
@@ -289,7 +410,7 @@ export default function QuestionCard({
           <div style={{ border: "1px solid var(--border)", borderRadius: "8px", overflow: "hidden", background: "#0e1530" }}>
             <Editor value={userCode} onValueChange={setUserCode} highlight={(code) => highlight(code, codeLang, "java")} padding={12} className="font-mono text-sm" style={{ fontFamily: "monospace", color: "var(--text)", minHeight: "120px" }} placeholder="// Write your code here..." />
           </div>
-          <button className="btn" style={{ marginTop: 8 }} onClick={handleCheckCodeWithLLM}>▶ Check Answer</button>
+          <button className="btn" style={{ marginTop: 8 }} onClick={showHelper}>🔎 Helper</button>
 
           {feedback && (
             <p style={{ marginTop: 6, color: isCorrect ? "var(--ok)" : "var(--bad)", fontWeight: 500 }}>{feedback}</p>

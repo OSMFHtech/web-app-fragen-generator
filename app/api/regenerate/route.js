@@ -16,6 +16,16 @@ function validateItem(item) {
   if (!item || !item.id || !item.text) return false;
   if (item.type === "multiple-choice" && !Array.isArray(item.options)) return false;
   if (item.type === "coderunner" && typeof item.answer !== "string") return false;
+  // select-and-drag must have options array and mapping for blanks
+  if (item.type === "select-and-drag") {
+    if (!Array.isArray(item.options) || !Array.isArray(item.mapping)) return false;
+    if (typeof item.blanks !== 'number' && !Array.isArray(item.mapping)) return false;
+  }
+  // list-options must have definitions array, options array and mapping same length as definitions
+  if (item.type === "list-options") {
+    if (!Array.isArray(item.definitions) || !Array.isArray(item.options) || !Array.isArray(item.mapping)) return false;
+    if (item.mapping.length !== item.definitions.length) return false;
+  }
   return true;
 }
 
@@ -42,7 +52,11 @@ Return ONLY pure JSON array with one item:
     "text": "Question text",
     ${wantType === "coderunner"
       ? `"answer": "reference answer", "testcases": [{"input":"","expected":""}]`
-      : `"options": [
+      : wantType === 'select-and-drag'
+        ? `"options": [{"text":"Answer A"},{"text":"Answer B"},{"text":"Answer C"},{"text":"Answer D"},{"text":"Answer E"}],\n    \"mapping\": [0,1,2], \n    \"blanks\": 3`
+        : wantType === 'list-options'
+        ? `"definitions": ["Definition 1","Definition 2","Definition 3","Definition 4","Definition 5"],\n    \"options\": [{"text":"Answer A"},{"text":"Answer B"},{"text":"Answer C"},{"text":"Answer D"},{"text":"Answer E"}],\n    \"mapping\": [0,1,2,3,4]`
+        : `"options": [
           {"text":"Option A","correct":true/false},
           {"text":"Option B","correct":true/false},
           {"text":"Option C","correct":true/false},
@@ -95,7 +109,38 @@ export async function POST(req) {
       "return only the question text",
     ].join("\n");
 
-    const item = await callLLM(prompt, cfg.qtype, cfg.language, cfg.difficulty);
+    let item = await callLLM(prompt, cfg.qtype, cfg.language, cfg.difficulty);
+
+    // Post-process to ensure required fields for special types
+    if (item?.type === 'select-and-drag') {
+      const options = Array.isArray(item.options) && item.options.length ? item.options : [
+        { text: 'Answer A' }, { text: 'Answer B' }, { text: 'Answer C' }, { text: 'Answer D' }, { text: 'Answer E' }
+      ];
+      const blanksFromMapping = Array.isArray(item.mapping) ? item.mapping.length : null;
+      const blanks = Number.isFinite(Number(item.blanks)) ? Math.max(3, Math.min(6, Number(item.blanks))) : (blanksFromMapping ? Math.max(3, Math.min(6, blanksFromMapping)) : 3);
+      const mapping = Array.isArray(item.mapping) ? item.mapping.slice(0) : Array.from({ length: blanks }).map((_, i) => i % options.length);
+      while (mapping.length < blanks) mapping.push(mapping.length % options.length);
+      // ensure text contains numbered placeholders (1..n) and that placeholders aren't the only content
+      let text = item.text || '';
+      const hasPlaceholder = /\(\d+\)/.test(text);
+      const onlyPlaceholders = /^\s*(\(\d+\)\s*)+$/.test(text);
+      const placeholders = Array.from({ length: blanks }).map((_, i) => `(${i+1})`).join(' ');
+      if (!hasPlaceholder) {
+        text = (text + ' ' + placeholders).trim();
+      } else if (onlyPlaceholders || !text.replace(/\s+/g, '').length) {
+        text = `Fill in the blanks: ${placeholders}`;
+      }
+      item = { ...item, text, options, mapping, blanks };
+    }
+
+    if (item?.type === 'list-options') {
+      const definitions = Array.isArray(item.definitions) && item.definitions.length ? item.definitions : [ 'Definition 1', 'Definition 2', 'Definition 3', 'Definition 4' ];
+      const options = Array.isArray(item.options) && item.options.length ? item.options : [ { text: 'Answer A' }, { text: 'Answer B' }, { text: 'Answer C' }, { text: 'Answer D' }, { text: 'Answer E' } ];
+      const mapping = Array.isArray(item.mapping) ? item.mapping.slice(0) : definitions.map((_, i) => i % options.length);
+      while (mapping.length < definitions.length) mapping.push(mapping.length % options.length);
+      const text = item.text || definitions.slice(0, Math.min(3, definitions.length)).join(' · ');
+      item = { ...item, text, definitions, options, mapping };
+    }
 
     const valid = validateItem(item);
 
