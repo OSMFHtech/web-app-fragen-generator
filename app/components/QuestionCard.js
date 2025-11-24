@@ -410,7 +410,10 @@ export default function QuestionCard({
           <div style={{ border: "1px solid var(--border)", borderRadius: "8px", overflow: "hidden", background: "#0e1530" }}>
             <Editor value={userCode} onValueChange={setUserCode} highlight={(code) => highlight(code, codeLang, "java")} padding={12} className="font-mono text-sm" style={{ fontFamily: "monospace", color: "var(--text)", minHeight: "120px" }} placeholder="// Write your code here..." />
           </div>
+          {/* Helper button commented out per request — kept for future use
           <button className="btn" style={{ marginTop: 8 }} onClick={showHelper}>🔎 Helper</button>
+          */}
+          
 
           {feedback && (
             <p style={{ marginTop: 6, color: isCorrect ? "var(--ok)" : "var(--bad)", fontWeight: 500 }}>{feedback}</p>
