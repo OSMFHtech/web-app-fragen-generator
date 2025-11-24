@@ -20,3 +20,9 @@
 - lib/validators.js
 - docs/Benutzerhandbuch.md
 - docs/Softwarearchitektur.md
+
+
+
+
+
+
