@@ -2,9 +2,11 @@
 
 import Header from "../components/Header";
 import { useState } from "react";
+import { useLanguage } from "../context/LanguageContext";
 
 export default function AboutPage() {
   const [activeSection, setActiveSection] = useState("vision");
+  const { t } = useLanguage();
 
   return (
     <div className="page-wrapper">
@@ -13,9 +15,9 @@ export default function AboutPage() {
       <div className="about-page">
         <div className="about-hero">
           <div className="about-hero-content">
-            <h1 className="about-title">About ForgeEd Solutions</h1>
+            <h1 className="about-title">{t("aboutTitle")}</h1>
             <p className="about-subtitle">
-              Empowering Education Through AI-Driven Innovation
+              {t("aboutSubtitle")}
             </p>
           </div>
         </div>
@@ -26,87 +28,72 @@ export default function AboutPage() {
               className={`tab-btn ${activeSection === "vision" ? "active" : ""}`}
               onClick={() => setActiveSection("vision")}
             >
-              Our Vision
+              {t("visionTab")}
             </button>
             <button
               className={`tab-btn ${activeSection === "mission" ? "active" : ""}`}
               onClick={() => setActiveSection("mission")}
             >
-              Our Mission
+              {t("missionTab")}
             </button>
             <button
               className={`tab-btn ${activeSection === "team" ? "active" : ""}`}
               onClick={() => setActiveSection("team")}
             >
-              Our Team
+              {t("teamTab")}
             </button>
           </div>
 
           <div className="about-content">
             {activeSection === "vision" && (
               <div className="content-section vision-section">
-                <h2>Vision</h2>
+                <h2>{t("vision")}</h2>
                 <p>
-                  QuestionForge aims to revolutionize the way educators create assessment materials
-                  by leveraging cutting-edge AI technology. Our Web-App sits on top of AI-Tools,
-                  supporting the automated generation of question banks for Moodle and other
-                  learning management systems.
+                  {t("visionIntro")}
                 </p>
                 
                 <div className="vision-cards">
-                  <div className="vision-card">
-                    <div className="vision-icon">🎯</div>
-                    <h3>The Challenge</h3>
+                  <div className="vision-card challenge-card">
+                    <svg className="vision-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6z"/>
+                      <path d="M12 8v4m0 2v2m-2-6h4" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <h3>{t("theChallenge")}</h3>
                     <p>
-                      Manual question generation is time-consuming. Moodle courses require extensive
-                      question banks for self-assessment and official tests. Direct use of AI tools
-                      like ChatGPT faces limitations: context window constraints cause topic drift,
-                      forgotten constraints, and quality issues requiring human review.
+                      {t("challengeText")}
                     </p>
                   </div>
 
-                  <div className="vision-card">
-                    <div className="vision-icon">💡</div>
-                    <h3>Our Solution</h3>
+                  <div className="vision-card solution-card">
+                    <svg className="vision-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                      <path d="M9.5 11l2 2 4-5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <h3>{t("ourSolution")}</h3>
                     <p>
-                      QuestionForge internally prompts AI as needed, making multiple calls to avoid
-                      context exhaustion. Results are presented in an intuitive UI for human
-                      evaluation. Approved questions are exported in Moodle's XML format, ensuring
-                      quality while dramatically reducing manual workload.
+                      {t("solutionText")}
                     </p>
                   </div>
 
-                  <div className="vision-card">
-                    <div className="vision-icon">🏆</div>
-                    <h3>Faculty Value</h3>
+                  <div className="vision-card value-card">
+                    <svg className="vision-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                      <path d="M12 6v6m0 2v2m-3-5h6" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <h3>{t("facultyValue")}</h3>
                     <p>
-                      Our tool enables more efficient course development, allowing educators to focus
-                      on teaching rather than tedious question creation. Every generated question
-                      undergoes comprehensive validation before classroom deployment, ensuring
-                      pedagogical quality while maintaining complete transparency and control.
+                      {t("facultyValueText")}
                     </p>
                   </div>
                 </div>
 
                 <div className="tech-info">
-                  <h3>Technical Approach</h3>
+                  <h3>{t("technicalApproach")}</h3>
                   <ul>
-                    <li>
-                      <strong>Smart Batching:</strong> Questions generated in controlled batches to
-                      prevent AI context loss
-                    </li>
-                    <li>
-                      <strong>Human-in-the-Loop:</strong> Structured review workflow for quality
-                      assurance
-                    </li>
-                    <li>
-                      <strong>Flexible AI Integration:</strong> Works with existing AI tools via web
-                      interfaces - no AI expertise needed
-                    </li>
-                    <li>
-                      <strong>Moodle-Ready Export:</strong> Direct XML output for seamless LMS
-                      integration
-                    </li>
+                    <li>{t("smartBatching")}</li>
+                    <li>{t("humanInLoop")}</li>
+                    <li>{t("flexibleAI")}</li>
+                    <li>{t("moodleReady")}</li>
                   </ul>
                 </div>
               </div>
@@ -114,48 +101,42 @@ export default function AboutPage() {
 
             {activeSection === "mission" && (
               <div className="content-section mission-section">
-                <h2>Our Mission</h2>
+                <h2>{t("ourMission")}</h2>
                 <p className="mission-intro">
-                  At ForgeEd Solutions, we are committed to bridging the gap between cutting-edge
-                  AI technology and practical educational needs. Our mission encompasses:
+                  {t("missionIntro")}
                 </p>
 
                 <div className="mission-pillars">
                   <div className="pillar">
                     <span className="pillar-number">01</span>
-                    <h3>Quality First</h3>
-                    <p>
-                      Ensure every AI-generated question undergoes rigorous human review before
-                      deployment. We believe in AI as an assistant, not a replacement for educator
-                      expertise.
-                    </p>
+                    <div>
+                      <h3>{t("qualityFirst")}</h3>
+                      <p>{t("qualityDesc")}</p>
+                    </div>
                   </div>
 
                   <div className="pillar">
                     <span className="pillar-number">02</span>
-                    <h3>Efficiency Through Innovation</h3>
-                    <p>
-                      Reduce manual workload by 70% while maintaining full transparency and control.
-                      Educators should spend time teaching, not writing hundreds of test questions.
-                    </p>
+                    <div>
+                      <h3>{t("efficiencyTitle")}</h3>
+                      <p>{t("efficiencyDesc")}</p>
+                    </div>
                   </div>
 
                   <div className="pillar">
                     <span className="pillar-number">03</span>
-                    <h3>Accessibility & Ease of Use</h3>
-                    <p>
-                      Build web-based tools that require minimal technical knowledge. No AI expertise
-                      needed - just your domain knowledge and teaching goals.
-                    </p>
+                    <div>
+                      <h3>{t("accessibilityTitle")}</h3>
+                      <p>{t("accessibilityDesc")}</p>
+                    </div>
                   </div>
 
                   <div className="pillar">
                     <span className="pillar-number">04</span>
-                    <h3>Continuous Improvement</h3>
-                    <p>
-                      Listen to educator feedback and iterate rapidly. Our platform evolves with the
-                      needs of the academic community we serve.
-                    </p>
+                    <div>
+                      <h3>{t("continuousTitle")}</h3>
+                      <p>{t("continuousDesc")}</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -163,11 +144,9 @@ export default function AboutPage() {
 
             {activeSection === "team" && (
               <div className="content-section team-section">
-                <h2>Our Team</h2>
+                <h2>{t("ourTeam")}</h2>
                 <p className="team-intro">
-                  QuestionForge is developed under the organizational and thematic responsibility of
-                  the <strong>KF Artificial Intelligence & Data Analytics</strong> department at FH
-                  Technikum Wien.
+                  {t("teamIntro")}
                 </p>
 
                 <div className="team-grid">
@@ -176,7 +155,7 @@ export default function AboutPage() {
                       <span className="avatar-text">CR</span>
                     </div>
                     <h3>Christoph Redl</h3>
-                    <p className="team-role">Project Supervisor</p>
+                    <p className="team-role">{t("projectSupervisor")}</p>
                     <p className="team-dept">FH Technikum Wien</p>
                     <a href="mailto:redlch@technikum-wien.at" className="team-email">
                       redlch@technikum-wien.at
@@ -188,16 +167,16 @@ export default function AboutPage() {
                       <span className="avatar-text">FS</span>
                     </div>
                     <h3>ForgeEd Solutions</h3>
-                    <p className="team-role">Development Team</p>
-                    <p className="team-dept">AI & Data Analytics</p>
+                    <p className="team-role">{t("developmentTeam")}</p>
+                    <p className="team-dept">{t("aiDataAnalytics")}</p>
                     <p className="team-desc">
-                      Dedicated to building innovative educational tools
+                      {t("dedicatedTeam")}
                     </p>
                   </div>
                 </div>
 
                 <div className="tech-stack">
-                  <h3>Technologies & Skills</h3>
+                  <h3>{t("techAndSkills")}</h3>
                   <div className="tech-tags">
                     <span className="tech-tag">Next.js 14</span>
                     <span className="tech-tag">React</span>
@@ -208,14 +187,29 @@ export default function AboutPage() {
                     <span className="tech-tag">LLM Integration</span>
                   </div>
                   <p className="tech-note">
-                    <strong>Note:</strong> No deep AI expertise required - we leverage existing AI
-                    tools through web interfaces, focusing on practical application development.
+                    <strong>{t("techNote").split(":")[0]}:</strong> {t("techNote").split(": ")[1]}
                   </p>
                 </div>
               </div>
             )}
           </div>
         </div>
+
+        <footer className="landing-footer">
+          <div className="footer-content">
+            <div className="footer-links">
+              <a href="/" className="footer-link home-link">{t("home")}</a>
+              <a href="/about" className="footer-link about-link">{t("aboutUs").toUpperCase()}</a>
+              <a href="/contact" className="footer-link contact-link">{t("contact").toUpperCase()}</a>
+            </div>
+            <div className="footer-text">
+              <strong>{t("footerText")}</strong>
+            </div>
+            <div className="footer-subtext">
+              {t("footerSubtext")}
+            </div>
+          </div>
+        </footer>
       </div>
     </div>
   );

@@ -2,8 +2,10 @@
 
 import Header from "../components/Header";
 import { useState } from "react";
+import { useLanguage } from "../context/LanguageContext";
 
 export default function ContactPage() {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -46,9 +48,9 @@ export default function ContactPage() {
       <div className="contact-page">
         <div className="contact-hero">
           <div className="contact-hero-content">
-            <h1 className="contact-title">Get in Touch</h1>
+            <h1 className="contact-title">{t("getInTouch")}</h1>
             <p className="contact-subtitle">
-              We'd love to hear your suggestions for improving QuestionForge
+              {t("suggestionsSubtitle")}
             </p>
           </div>
         </div>
@@ -62,7 +64,7 @@ export default function ContactPage() {
                     <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <h3>Email Us</h3>
+                <h3>{t("emailUs")}</h3>
                 <p>wi22b047@technikum-wien.at</p>
               </div>
 
@@ -72,10 +74,9 @@ export default function ContactPage() {
                     <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                   </svg>
                 </div>
-                <h3>We Value Your Input</h3>
+                <h3>{t("weValueInput")}</h3>
                 <p>
-                  Share ideas for new features, report issues, or suggest improvements to our
-                  platform
+                  {t("inputDesc")}
                 </p>
               </div>
 
@@ -85,15 +86,15 @@ export default function ContactPage() {
                     <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <h3>Response Time</h3>
-                <p>We typically respond within 24-48 hours during business days</p>
+                <h3>{t("responseTime")}</h3>
+                <p>{t("responseTimeDesc")}</p>
               </div>
             </div>
 
             <div className="contact-form-wrapper">
               <form onSubmit={handleSubmit} className="contact-form">
                 <div className="form-group">
-                  <label htmlFor="name">Your Name</label>
+                  <label htmlFor="name">{t("yourName")}</label>
                   <input
                     type="text"
                     id="name"
@@ -102,12 +103,12 @@ export default function ContactPage() {
                     onChange={handleChange}
                     required
                     className="form-input"
-                    placeholder="John Doe"
+                    placeholder={t("namePlaceholder")}
                   />
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="email">Your Email</label>
+                  <label htmlFor="email">{t("yourEmail")}</label>
                   <input
                     type="email"
                     id="email"
@@ -116,12 +117,12 @@ export default function ContactPage() {
                     onChange={handleChange}
                     required
                     className="form-input"
-                    placeholder="john.doe@example.com"
+                    placeholder={t("emailPlaceholder")}
                   />
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="subject">Subject</label>
+                  <label htmlFor="subject">{t("subject")}</label>
                   <select
                     id="subject"
                     name="subject"
@@ -130,18 +131,18 @@ export default function ContactPage() {
                     required
                     className="form-input"
                   >
-                    <option value="">Select a topic...</option>
-                    <option value="feature">Feature Request</option>
-                    <option value="improvement">Improvement Suggestion</option>
-                    <option value="bug">Bug Report</option>
-                    <option value="feedback">General Feedback</option>
-                    <option value="other">Other</option>
+                    <option value="">{t("selectTopic")}</option>
+                    <option value="feature">{t("featureRequest")}</option>
+                    <option value="improvement">{t("improvementSuggestion")}</option>
+                    <option value="bug">{t("bugReport")}</option>
+                    <option value="feedback">{t("generalFeedback")}</option>
+                    <option value="other">{t("other")}</option>
                   </select>
                 </div>
 
                 <div className="form-group">
                   <label htmlFor="message">
-                    Your Message
+                    {t("message")}
                     <span className="char-counter">
                       {charCount}/1000
                     </span>
@@ -153,7 +154,7 @@ export default function ContactPage() {
                     onChange={handleChange}
                     required
                     className="form-textarea"
-                    placeholder="Tell us about your suggestions or ideas..."
+                    placeholder={t("messagePlaceholder")}
                     rows="8"
                   />
                 </div>
@@ -163,12 +164,12 @@ export default function ContactPage() {
                   className="form-submit"
                   disabled={status === "sending"}
                 >
-                  {status === "sending" ? "Sending..." : "Send Message"}
+                  {status === "sending" ? t("sending") : t("send")}
                 </button>
 
                 {status === "success" && (
                   <div className="form-message success">
-                    ✓ Thank you! Your message has been sent successfully.
+                    ✓ {t("successMessage")}
                   </div>
                 )}
                 {status === "error" && (
@@ -180,6 +181,22 @@ export default function ContactPage() {
             </div>
           </div>
         </div>
+
+        <footer className="landing-footer">
+          <div className="footer-content">
+            <div className="footer-links">
+              <a href="/" className="footer-link home-link">{t("home")}</a>
+              <a href="/about" className="footer-link about-link">{t("aboutUs").toUpperCase()}</a>
+              <a href="/contact" className="footer-link contact-link">{t("contact").toUpperCase()}</a>
+            </div>
+            <div className="footer-text">
+              <strong>{t("footerText")}</strong>
+            </div>
+            <div className="footer-subtext">
+              {t("footerSubtext")}
+            </div>
+          </div>
+        </footer>
       </div>
     </div>
   );

@@ -519,11 +519,6 @@ strong {
   letter-spacing: 0.5px;
 }
 
-.nav-btn.home-btn {
-  background: linear-gradient(135deg, #f97316, #fb923c);
-  color: #0b1020;
-}
-
 .nav-btn.about-btn {
   background: linear-gradient(135deg, var(--ok), #5eeaa8);
   color: #0b1020;
@@ -665,6 +660,28 @@ strong {
   margin-bottom: 16px;
 }
 
+.vision-card svg.vision-icon {
+  width: 60px;
+  height: 60px;
+  margin-bottom: 20px;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Colored vision card icons */
+.vision-card.challenge-card svg.vision-icon {
+  color: #f97316;
+}
+
+.vision-card.solution-card svg.vision-icon {
+  color: #10b981;
+}
+
+.vision-card.value-card svg.vision-icon {
+  color: #8b5cf6;
+}
+
 .vision-card h3 {
   font-size: 20px;
   color: var(--text);
@@ -708,15 +725,40 @@ strong {
 }
 
 .pillar-number {
-  font-size: 48px;
+  font-size: 32px;
   font-weight: 700;
-  color: var(--accent);
   line-height: 1;
+  min-width: 50px;
+  flex-shrink: 0;
+}
+
+.pillar:nth-child(1) .pillar-number {
+  color: #f97316;
+}
+
+.pillar:nth-child(2) .pillar-number {
+  color: #10b981;
+}
+
+.pillar:nth-child(3) .pillar-number {
+  color: #8b5cf6;
+}
+
+.pillar:nth-child(4) .pillar-number {
+  color: #3b82f6;
 }
 
 .pillar h3 {
   color: var(--text);
-  margin-bottom: 8px;
+  margin: 0 0 8px 0;
+  font-size: 18px;
+}
+
+.pillar p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+  font-size: 14px;
 }
 
 .team-grid {
