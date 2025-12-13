@@ -1,10 +1,14 @@
 "use client";
 
+import Header from "./Header";
+
 export default function LandingPage() {
-return (
+  return (
     <div className="landing-wrapper">
-        {/* Hero Section */}
-        <div className="hero-section">
+      <Header />
+      
+      {/* Hero Section */}
+      <div className="hero-section">
             <div className="hero-content">
                 <div className="hero-logo-container">
                     <img
@@ -144,21 +148,20 @@ return (
 
         {/* Footer */}
         <footer className="landing-footer">
-            <div className="footer-content">
-                <div className="footer-links">
-                    <a href="#home">HOME</a>
-                    <a href="#about">ABOUT</a>
-                    <a href="#contact">CONTACT</a>
-                    <a href="#privacy">PRIVACY POLICY</a>
-                </div>
-                <div className="footer-text">
-                    <strong>© 2025 QuestionForge · Developed by ForgeEd Solutions Team 7</strong>
-                </div>
-                <div className="footer-subtext">
-                    University of Applied Sciences Technikum Wien · For academic use only
-                </div>
+          <div className="footer-content">
+            <div className="footer-links">
+              <a href="/" className="footer-link home-link">HOME</a>
+              <a href="/about" className="footer-link about-link">ABOUT US</a>
+              <a href="/contact" className="footer-link contact-link">CONTACT</a>
             </div>
+            <div className="footer-text">
+              <strong>© 2025 QuestionForge · Developed by ForgeEd Solutions Team 7</strong>
+            </div>
+            <div className="footer-subtext">
+              University of Applied Sciences Technikum Wien · For academic use only
+            </div>
+          </div>
         </footer>
-    </div>
-);
+      </div>
+    );
 }

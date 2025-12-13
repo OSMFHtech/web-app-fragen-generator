@@ -3,6 +3,8 @@
 import { useState, useMemo } from "react";
 import QuestionCard from "../components/QuestionCard";
 import StatusSummary from "../components/StatusSummary";
+import XMLManager from "../components/XMLManager";
+import Header from "../components/Header";
 import { buildMoodleXml, download } from "../../lib/moodleXml";
 
 export default function GeneratorPage() {
@@ -286,7 +288,9 @@ export default function GeneratorPage() {
   }
 
   return (
-    <div className="container">
+    <div className="page-wrapper">
+      <Header />
+      <div className="container">
       <h1>AI Question Generator</h1>
       <p className="small">Frontend demo • Generate → Review → Export (Moodle XML)</p>
 
@@ -405,9 +409,15 @@ export default function GeneratorPage() {
         ) : null}
       </div>
 
+      {/* XML Manager Section */}
+      <div style={{ marginTop: "32px" }}>
+        <XMLManager />
+      </div>
+
       <div className="footer">
         <a href="/">← Back to QuestionForge Home</a>
       </div>
+    </div>
     </div>
   );
 }
