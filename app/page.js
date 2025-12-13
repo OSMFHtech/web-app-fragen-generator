@@ -151,9 +151,6 @@ export default function Page() {
   -----------------------------*/
   async function generate() {
     setLoading(true);
-    setQuestions([]);
-    setAcceptedIds(new Set());
-    setRejectedIds(new Set());
 
     try {
       const res = await fetch("/api/generate", {
@@ -162,8 +159,12 @@ export default function Page() {
         body: JSON.stringify({ topic, language, qtype, difficulty, count }),
       });
       const data = await res.json();
-      if (data.ok) setQuestions(data.items);
-      else alert(data.error || "Generation failed");
+      if (data.ok) {
+        // Append new questions to existing ones instead of replacing
+        setQuestions((prev) => [...prev, ...data.items]);
+      } else {
+        alert(data.error || "Generation failed");
+      }
     } catch (e) {
       alert(String(e));
     } finally {
