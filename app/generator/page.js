@@ -6,8 +6,10 @@ import StatusSummary from "../components/StatusSummary";
 import XMLManager from "../components/XMLManager";
 import Header from "../components/Header";
 import { buildMoodleXml, download } from "../../lib/moodleXml";
+import { useLanguage } from "../context/LanguageContext";
 
 export default function GeneratorPage() {
+  const { t } = useLanguage();
   const [topic, setTopic] = useState("");
   const [language, setLanguage] = useState("en");
   const [qtype, setQtype] = useState("multiple-choice");
@@ -291,49 +293,49 @@ export default function GeneratorPage() {
     <div className="page-wrapper">
       <Header />
       <div className="container">
-      <h1>AI Question Generator</h1>
-      <p className="small">Frontend demo • Generate → Review → Export (Moodle XML)</p>
+      <h1>{t('aiQuestionGenerator')}</h1>
+      <p className="small">{t('frontendDemo')}</p>
 
       <div className="card" style={{ marginTop: 12 }}>
         <div className="row">
           <div>
-            <label>Topic</label>
+            <label>{t('topic')}</label>
             <input
               className="input"
-              placeholder="e.g., Linear Regression"
+              placeholder={t('topicPlaceholder')}
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
             />
           </div>
           <div>
-            <label>Language</label>
+            <label>{t('language')}</label>
             <select value={language} onChange={(e) => setLanguage(e.target.value)}>
-              <option value="en">English</option>
-              <option value="de">Deutsch</option>
+              <option value="en">{t('english')}</option>
+              <option value="de">{t('german')}</option>
             </select>
           </div>
         </div>
 
         <div className="row3" style={{ marginTop: 12 }}>
           <div>
-            <label>Question Type</label>
+            <label>{t('questionType')}</label>
             <select value={qtype} onChange={(e) => setQtype(e.target.value)}>
-              <option value="multiple-choice">Multiple Choice</option>
-              <option value="coderunner">CodeRunner</option>
-              <option value="select-and-drag">Select & Drag</option>
-              <option value="list-options">Definition Matching</option>
+              <option value="multiple-choice">{t('multipleChoice')}</option>
+              <option value="coderunner">{t('codeRunner')}</option>
+              <option value="select-and-drag">{t('selectAndDrag')}</option>
+              <option value="list-options">{t('definitionMatching')}</option>
             </select>
           </div>
           <div>
-            <label>Difficulty</label>
+            <label>{t('difficulty')}</label>
             <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)}>
-              <option value="easy">Easy</option>
-              <option value="medium">Medium</option>
-              <option value="hard">Hard</option>
+              <option value="easy">{t('easy')}</option>
+              <option value="medium">{t('medium')}</option>
+              <option value="hard">{t('hard')}</option>
             </select>
           </div>
           <div>
-            <label>Count</label>
+            <label>{t('count')}</label>
             <input
               className="input"
               type="number"
@@ -347,25 +349,25 @@ export default function GeneratorPage() {
 
         <div style={{ display: "flex", gap: 8, marginTop: 12, alignItems: "center" }}>
           <button className="btn" onClick={generate} disabled={loading || !topic}>
-            {loading ? "Generating…" : "Generate"}
+            {loading ? t('generating') : t('generate')}
           </button>
           <button className="btn ok" onClick={acceptAll} disabled={questions.length === 0}>
-            Accept all
+            {t('acceptAll')}
           </button>
           <button className="btn warn" onClick={rejectAll} disabled={questions.length === 0}>
-            Reject all
+            {t('rejectAll')}
           </button>
           <button className="btn ok" onClick={exportXml} disabled={accepted.length === 0 || exporting}>
-            {exporting ? "Exporting…" : "Export accepted to Moodle XML"}
+            {exporting ? t('exporting') : t('exportToMoodle')}
           </button>
-          <span className="small">{accepted.length} selected for export</span>
+          <span className="small">{accepted.length} {t('selectedForExport')}</span>
         </div>
       </div>
 
       <StatusSummary total={questions.length} accepted={acceptedIds.size} rejected={rejectedIds.size} />
 
       <div className="card" style={{ marginTop: 12 }}>
-        <div className="section-title">Grading Legend / Bewertung</div>
+        <div className="section-title">{t('gradingLegend')}</div>
         <div className="small" style={{ display: "grid", gap: 8 }}>
           <div><span className="tag ok" style={{ marginRight: 8 }}></span> ≥ 90% — Final Grade 1: Sehr gut (green)</div>
           <div><span className="tag warn" style={{ marginRight: 8 }}></span> 78–89% — Gut (orange)</div>
@@ -405,7 +407,7 @@ export default function GeneratorPage() {
           />
         ))}
         {!questions.length && !loading ? (
-          <div className="small">No questions yet. Enter a topic and click Generate.</div>
+          <div className="small">{t('noQuestionsYet')}</div>
         ) : null}
       </div>
 

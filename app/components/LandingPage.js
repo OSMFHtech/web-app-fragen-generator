@@ -83,7 +83,7 @@ export default function LandingPage() {
 
         {/* Workflow Section */}
         <div className="workflow-section">
-            <div className="container">
+            <div className="workflow-section-inner">
                 <h2 className="section-heading">{t("workflowOverview")}</h2>
                 
                 <div className="workflow-grid">
@@ -140,7 +140,7 @@ export default function LandingPage() {
 
         {/* Features Section */}
         <div className="features-section">
-            <div className="container">
+            <div className="features-section-inner">
                 <h2 className="section-heading">{t("whyQuestionForge")}</h2>
                 
                 <div className="features-grid">
@@ -185,7 +185,7 @@ export default function LandingPage() {
 
         {/* Testimonials Carousel Section */}
         <div className="testimonial-section">
-          <div className="container">
+          <div className="testimonial-section-inner">
             <h2 className="section-heading">{language === "de" ? "Das sagen unsere Benutzer" : "What Our Users Say"}</h2>
           </div>
           <div className="testimonial-carousel">
