@@ -8,10 +8,19 @@ export default function Header() {
   const pathname = usePathname();
   const { language, toggleLanguage, t } = useLanguage();
 
+  const handleLogoClick = () => {
+    // If on landing page, scroll to top; otherwise navigate to landing page
+    if (pathname === "/") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      router.push("/");
+    }
+  };
+
   return (
     <header className="app-header">
       <div className="header-container">
-        <div className="header-logo" onClick={() => router.push("/")}>
+        <div className="header-logo" onClick={handleLogoClick} style={{ cursor: "pointer" }}>
           <span className="logo-icon">🔨</span>
           <span className="logo-text">QuestionForge</span>
         </div>
