@@ -49,6 +49,9 @@ lerna-debug.log*
 # pnpm-lock.yaml
 package-lock.json # <-- Note: Some developers commit this, others ignore it.
 
+# Large video files (host on CDN instead)
+public/videos/
+
 # 4. OS AND EDITOR FILES
 # -------------------------------------------------------------------
 
