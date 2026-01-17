@@ -41,26 +41,20 @@ Die Anwendung ist ein webbasiertes System zur automatisierten Generierung von Fr
 
 ---
 
-## <span style="color:#3B689F">3. Datenfluss</span>
+## <span style="color:#3B689F">3. Datenfluss & Kernlogik</span>
 
-UI sendet POST an /api/generate.
-API orchestriert, ruft LLM, validiert Items und liefert Normalform.
-UI zeigt Batches, dedupliziert, Nutzer bestätigt Items.
-Export nutzt lib/moodleXml.js.
+### **Problem (aus Aufgabenstellung)**
+LLMs haben begrenzte Context Windows. Bei Anforderung von 300 Fragen vergisst das Modell Thema, Sprache, Schwierigkeit während der Generierung.
 
-**Details:**
-- 1. Nutzer gibt Topic, Sprache, Fragetyp, Schwierigkeit ein
-- 2. POST <span style="color:#E8944A">/api/generate</span> wird aufgerufen
-- 3. Backend: Parameter validieren
-- 4. Backend: LLM in Batches aufrufen (Context-Window-Safe)
-- 5. Backend: Serverseitige harte Validierung durchführen
-- 6. Backend: Items normalisieren
-- 7. Frontend: Fragen anzeigen in Batches
-- 8. Frontend: Duplikate herausfiltern
-- 9. Nutzer: Accept/Reject/Edit/Regenerate wählen
-- 10. Frontend: Clientseitige Validierungswarnungen zeigen
-- 11. Export: Akzeptierte Items zu Moodle-XML konvertieren
-- 12. Download: .xml-Datei bereitstellen
+### **Lösung: Batch-Verarbeitung**
+
+1. **User Input** → Topic, Sprache, Fragetyp, Schwierigkeit, Anzahl
+2. **Backend splittet in kleine Batches** (z. B. 5 Fragen pro Anfrage) → Context-Window sicher
+3. **Jede Batch einzeln an LLM** → Validierung & Normalisierung
+4. **Frontend sammelt & zeigt Batches** → Deduplication
+5. **User Review** → Accept/Reject/Edit/Regenerate pro Frage
+6. **Export** → Akzeptierte Fragen → Moodle-XML
+7. **Download** → .xml-Datei
 
 ---
 
@@ -95,37 +89,60 @@ Serverseitig harte Validierung, clientseitig Warnungen.
 
 ### **.env.local** (Nicht committed)
 
-.env.local für API Schlüssel und Modell.
-
-`
+```
 OPENROUTER_API_KEY=sk-or-v1-...
 LLM_MODEL=gpt-4o-mini
 EMAIL_USER=your-email@gmail.com
 EMAIL_PASS=your-app-password
-`
+```
 
 ### **.env.example** (Committed - Vorlage)
 
-`
+```
 OPENROUTER_API_KEY=your-key-here
 LLM_MODEL=gpt-4o-mini
 EMAIL_USER=your-email@gmail.com
 EMAIL_PASS=your-app-password
-`
+```
 
 ---
 
 ## <span style="color:#3B689F">7. Technologie-Stack</span>
 
-| Layer | Technologie |
-|-------|-------------|
-| **Frontend** | Next.js 14+, React, CSS3 |
-| **Backend** | Node.js (Next.js API Routes) |
-| **State** | React Context |
-| **LLM** | OpenRouter API |
-| **Email** | Nodemailer + Gmail SMTP |
-| **Export** | Moodle XML |
-| **Code-Highlighting** | Prism.js |
+<table>
+<tr>
+<th>Layer</th>
+<th>Technologie</th>
+</tr>
+<tr>
+<td><strong>Frontend</strong></td>
+<td>Next.js 14+, React, CSS3</td>
+</tr>
+<tr>
+<td><strong>Backend</strong></td>
+<td>Node.js (Next.js API Routes)</td>
+</tr>
+<tr>
+<td><strong>State</strong></td>
+<td>React Context</td>
+</tr>
+<tr>
+<td><strong>LLM</strong></td>
+<td>OpenRouter API</td>
+</tr>
+<tr>
+<td><strong>Email</strong></td>
+<td>Nodemailer + Gmail SMTP</td>
+</tr>
+<tr>
+<td><strong>Export</strong></td>
+<td>Moodle XML</td>
+</tr>
+<tr>
+<td><strong>Code-Highlighting</strong></td>
+<td>Prism.js</td>
+</tr>
+</table>
 
 ---
 
