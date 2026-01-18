@@ -17,7 +17,6 @@ out/
 
 # Compiled TypeScript output (if using TypeScript)
 /dist/
-/lib/
 /tmp/
 
 # Jest coverage output
